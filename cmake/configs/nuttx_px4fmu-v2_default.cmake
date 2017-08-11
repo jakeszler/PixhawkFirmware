@@ -36,12 +36,12 @@ set(config_module_list
 	#drivers/hott/hott_telemetry
 	#drivers/hott/hott_sensors
 	#drivers/blinkm
-	drivers/airspeed
-	drivers/ets_airspeed
-	drivers/ms4525_airspeed
-	drivers/ms5525_airspeed
-	drivers/sdp3x_airspeed
-	drivers/frsky_telemetry
+	#drivers/airspeed
+	#drivers/ets_airspeed
+	#drivers/ms4525_airspeed
+	#drivers/ms5525_airspeed
+	#drivers/sdp3x_airspeed
+	#drivers/frsky_telemetry
 	modules/sensors
 	#drivers/mkblctrl
 	drivers/px4flow
@@ -58,23 +58,23 @@ set(config_module_list
 	#
 	# System commands
 	#
-	systemcmds/bl_update
-	systemcmds/config
+	#systemcmds/bl_update
+	#systemcmds/config
 	#systemcmds/dumpfile
 	#systemcmds/esc_calib
-	systemcmds/hardfault_log
-	systemcmds/mixer
+	#systemcmds/hardfault_log
+	#systemcmds/mixer
 	#systemcmds/motor_ramp
-	systemcmds/mtd
+	#systemcmds/mtd
 	systemcmds/nshterm
-	systemcmds/param
-	systemcmds/perf
-	systemcmds/pwm
-	systemcmds/reboot
+	#systemcmds/param
+	#systemcmds/perf
+	#systemcmds/pwm
+	#systemcmds/reboot
 	#systemcmds/sd_bench
-	systemcmds/top
-	#systemcmds/topic_listener
-	systemcmds/ver
+	#systemcmds/top
+	systemcmds/topic_listener
+	#systemcmds/ver
 
 	#
 	# Testing
@@ -176,7 +176,7 @@ set(config_module_list
 	#examples/math_demo
 	# Tutorial code from
 	# https://px4.io/dev/px4_simple_app
-	#examples/px4_simple_app
+	examples/px4_simple_app
 
 	# Tutorial code from
 	# https://px4.io/dev/daemon
