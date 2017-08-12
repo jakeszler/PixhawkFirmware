@@ -322,14 +322,16 @@ int piksi_uart(int argc, char *argv[])
 	 
 		  //str_i = 0;
 	      //memset(str, 0, sizeof(str));
-	      pos.lat = pos_llh.lat;
-	      pos.lon = pos_llh.lon;
-	      pos.alt = pos_llh.height;
+	      pos.lat = pos_llh.lat* 1E7;  //TODO this could potentially be an issue since we are casting from double to int
+	      pos.lon = pos_llh.lon* 1E7;  //TODO also not sure if this is really * 1e7 (mavlink protocol says so but maybe px4 is diffrent)
+  	      pos.alt = pos_llh.height* 1000; //aslo not sure of this conversionrate
 	      pos.vel_n_m_s = vel_ned.n;
 	      pos.vel_e_m_s = vel_ned.e;
 		  pos.vel_d_m_s = vel_ned.d;
 		  pos.hdop = (dops.hdop/100);
 		  pos.vdop = (dops.vdop/100);
+		  //PX4_INFO("%4.10lf", pos_llh.lat);
+		  //PX4_INFO("%ld",pos.lat);
 	      orb_publish(ORB_ID(vehicle_gps_position), _gps_pub, &pos);
 	      // all this is for debugging
 	      // str_i += sprintf(str + str_i, "\n\n\n\n");
