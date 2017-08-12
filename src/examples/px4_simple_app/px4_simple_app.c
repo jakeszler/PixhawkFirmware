@@ -33,7 +33,7 @@
 
 /**
  * @file px4_simple_app.c
- * Minimal application example for PX4 autopilot
+ * PIKSI <-> Pixhawk interface
  *
  * @author Example User <mail@example.com>
  */
@@ -61,11 +61,6 @@
 #include "comms.h"
 #include "messages.h"
 
-#include <uORB/uORB.h>
-#include <uORB/topics/sensor_combined.h>
-#include <uORB/topics/vehicle_attitude.h>
-
-
 #include <stdint.h>
 
 #include <px4_tasks.h>
@@ -91,9 +86,6 @@
 #define MAVLINK_MESSAGE_CRCS {50, 124, 137, 0, 237, 217, 104, 119, 0, 0, 0, 89, 0, 0, 0, 0, 0, 0, 0, 0, 214, 159, 220, 168, 24, 23, 170, 144, 67, 115, 39, 246, 185, 104, 237, 244, 222, 212, 9, 254, 230, 28, 28, 132, 221, 232, 11, 153, 41, 39, 78, 196, 0, 0, 15, 3, 0, 0, 0, 0, 0, 167, 183, 119, 191, 118, 148, 21, 0, 243, 124, 0, 0, 38, 20, 158, 152, 143, 0, 0, 0, 106, 49, 22, 143, 140, 5, 150, 0, 231, 183, 63, 54, 47, 0, 0, 0, 0, 0, 0, 175, 102, 158, 208, 56, 93, 138, 108, 32, 185, 84, 34, 174, 124, 237, 4, 76, 128, 56, 116, 134, 237, 203, 250, 87, 203, 220, 25, 226, 46, 29, 223, 85, 6, 229, 203, 1, 195, 109, 168, 181, 47, 72, 131, 127, 0, 103, 154, 178, 200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 163, 105, 151, 35, 150, 0, 0, 0, 0, 0, 0, 90, 104, 85, 95, 130, 184, 81, 8, 204, 49, 170, 44, 83, 46, 0}
 
 #include "mavlink_types.h"
-//#include <modules/mavlink/mavlink_messages.h>
-
-//#include <mavlink/include/mavlink/v1.0/mavlink_types.h>
 
 #include <uORB/uORB.h>
 #include <uORB/topics/sensor_combined.h>
@@ -115,39 +107,14 @@ __EXPORT int px4_simple_app_main(int argc, char *argv[]);
 static const uint8_t mavlink_message_lengths[256] = MAVLINK_MESSAGE_LENGTHS;
 static const uint8_t mavlink_message_crcs[256] = MAVLINK_MESSAGE_CRCS;
 
-volatile bool _task_should_exit = false; // flag indicating if snapdragon_rc_pwm task should exit
 static char _device[MAX_LEN_DEV_PATH];
-//static bool _is_running = false;         // flag indicating if snapdragon_rc_pwm app is running
-//static px4_task_t _task_handle = -1;     // handle to the task main thread
+
 static int _uart_fd = -1;
-int _pwm_fd = -1;
 static bool _flow_control_enabled = false;
-int32_t _pwm_disarmed;
 
 hrt_abstime _last_actuator_controls_received = 0;
 
 
-// Print out the usage information
-/*void usage();
-
-void start();
-
-
-void stop();
-
-int initialise_uart();
-
-int deinitialize_uart();
-
-int enable_flow_control(bool enabled);
-
-void send_rc_mavlink();
-
-void handle_message(mavlink_message_t *msg);
-
-void set_pwm_output(mavlink_actuator_control_target_t *actuator_controls);
-
-*/
 #define MAVLINK_MSG_ID_ACTUATOR_CONTROL_TARGET 140
 
 __EXPORT int initialise_uart(void);
@@ -255,8 +222,6 @@ void sbp_setup(void)
                         NULL, &vel_ned_node);
   sbp_register_callback(&sbp_state, SBP_MSG_DOPS, &sbp_dops_callback,
                         NULL, &dops_node);
-  //sbp_register_callback(&sbp_state, SBP_MSG_HEARTBEAT, &heartbeat_callback, NULL,
-    //                    &heartbeat_callback_node);
 
 }
 
@@ -297,30 +262,17 @@ int piksi_uart(int argc, char *argv[])
 		memset(&pos, 0, sizeof(pos));
 		orb_advert_t _gps_pub = orb_advertise(ORB_ID(vehicle_gps_position), &pos);
 
-		//int gps_topic = orb_subscribe(ORB_ID(sensor_combined));
-
-
 		initialise_uart();
-
-		//_pwm_fd = open(PWM_OUTPUT0_DEVICE_PATH, 0);
-		//if (_pwm_fd < 0) {
-		//	PX4_ERR("can't open %s", PWM_OUTPUT0_DEVICE_PATH);
-		//	return 0;
-		//}
-		PX4_INFO("here1");
-		// we wait for uart actuator controls messages from snapdragon
 		px4_pollfd_struct_t fds[1];
 		fds[0].fd = _uart_fd;
 		fds[0].events = POLLIN;
-		PX4_INFO("here2");
 		sbp_setup();
-		param_get(param_find("PWM_DISARMED"), &_pwm_disarmed);
 	    //vvvv for debugging
 	    //char rj[30];
 	 	//char str[1000];
 	  	//int str_i;
 	  	u16 crc;
-	  	const u8 *test_data = (u8*)"123456789";
+	  	const u8 *test_data = (u8*)"123456789"; //this is just checking the crc
 	  	crc = crc16_ccitt(test_data, 0, 22);
 	  	PX4_INFO("crc %d",crc);
 	  	PX4_INFO("herecrcrc");
@@ -337,13 +289,11 @@ int piksi_uart(int argc, char *argv[])
 			}
 
 			if (pret < 0) {
-				PX4_WARN("snapdragon_rc_pwm poll error");
+				PX4_WARN(" poll error");
 				// sleep a bit before next try
 				usleep(100000);
 				continue;
-			}
-			//PX4_INFO("here3");
-			
+			}			
 			//s8 ret = sbp_process(&sbp_state, &fifo_read); used to be here
 			//if (ret < 0)
 	      	//	PX4_INFO("sbp_process error: %d\n", (int)ret);
@@ -444,7 +394,6 @@ int piksi_uart(int argc, char *argv[])
 		}
 
 		deinitialize_uart();
-		close(_pwm_fd);
 
 	warnx("[daemon] exiting.\n");
 
