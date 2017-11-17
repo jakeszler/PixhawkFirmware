@@ -268,9 +268,9 @@ int piksi_uart(int argc, char *argv[])
 		fds[0].events = POLLIN;
 		sbp_setup();
 	    //vvvv for debugging
-	    //char rj[30];
-	 	//char str[1000];
-	  	//int str_i;
+//	    	char rj[30];
+//	 		char str[1000];
+//	  		int str_i;
 	  	u16 crc;
 	  	const u8 *test_data = (u8*)"123456789"; //this is just checking the crc
 	  	crc = crc16_ccitt(test_data, 0, 22);
@@ -318,9 +318,9 @@ int piksi_uart(int argc, char *argv[])
 				}
 			}
 
-		 DO_EVERY(100,
+		 DO_EVERY(10, // this was 100
 	 
-		  //str_i = 0;
+		 // str_i = 0;
 	      //memset(str, 0, sizeof(str));
 	      pos.lat = pos_llh.lat* 1E7;  //TODO this could potentially be an issue since we are casting from double to int
 	      pos.lon = pos_llh.lon* 1E7;  //TODO also not sure if this is really * 1e7 (mavlink protocol says so but maybe px4 is diffrent)
