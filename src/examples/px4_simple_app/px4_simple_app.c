@@ -80,6 +80,8 @@
 #include "sbp.h"
 #include "navigation.h"
 #include "tutorial_implementation.h"
+#include "tutorial_implementation.c"
+
 #include "edc.h"
 
 #define MAVLINK_MESSAGE_LENGTHS {9, 31, 12, 0, 14, 28, 3, 32, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 20, 2, 25, 23, 30, 101, 22, 26, 16, 14, 28, 32, 28, 28, 22, 22, 21, 6, 6, 37, 4, 4, 2, 2, 4, 2, 2, 3, 13, 12, 37, 4, 0, 0, 27, 25, 0, 0, 0, 0, 0, 72, 26, 181, 225, 42, 6, 4, 0, 11, 18, 0, 0, 37, 20, 35, 33, 3, 0, 0, 0, 22, 39, 37, 53, 51, 53, 51, 0, 28, 56, 42, 33, 81, 0, 0, 0, 0, 0, 0, 26, 32, 32, 20, 32, 62, 44, 64, 84, 9, 254, 16, 12, 36, 44, 64, 22, 6, 14, 12, 97, 2, 2, 113, 35, 6, 79, 35, 35, 22, 13, 255, 14, 18, 43, 8, 22, 14, 36, 43, 41, 32, 243, 14, 93, 0, 100, 36, 60, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 42, 40, 63, 182, 40, 0, 0, 0, 0, 0, 0, 32, 52, 53, 6, 2, 38, 19, 254, 36, 30, 18, 18, 51, 9, 0}
@@ -115,7 +117,6 @@ static bool _flow_control_enabled = false;
 hrt_abstime _last_actuator_controls_received = 0;
 
 
-#define MAVLINK_MSG_ID_ACTUATOR_CONTROL_TARGET 140
 
 __EXPORT int initialise_uart(void);
 int enable_flow_control(bool enabled);
@@ -260,17 +261,17 @@ int piksi_uart(int argc, char *argv[])
 		//mavlink_status_t serial_status = {};
 		struct vehicle_gps_position_s pos;
 		memset(&pos, 0, sizeof(pos));
-		orb_advert_t _gps_pub = orb_advertise(ORB_ID(vehicle_gps_position), &pos);
+		//orb_advert_t _gps_pub = orb_advertise(ORB_ID(vehicle_gps_position), &pos);
 
 		initialise_uart();
-		px4_pollfd_struct_t fds[1];
-		fds[0].fd = _uart_fd;
-		fds[0].events = POLLIN;
+		//px4_pollfd_struct_t fds[1];
+		//fds[0].fd = _uart_fd;
+		//fds[0].events = POLLIN;
 		sbp_setup();
 	    //vvvv for debugging
-//	    	char rj[30];
-//	 		char str[1000];
-//	  		int str_i;
+	    	char rj[30];
+	 		char str[1000];
+	  		int str_i;
 	  	u16 crc;
 	  	const u8 *test_data = (u8*)"123456789"; //this is just checking the crc
 	  	crc = crc16_ccitt(test_data, 0, 22);
@@ -281,47 +282,60 @@ int piksi_uart(int argc, char *argv[])
 		{
 
 			// wait for up to 100ms for data
-			int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
+			// int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
 
-			// timed out
-			if (pret == 0) {
-				// let's run the loop anyway to send RC
-			}
+			// // timed out
+			// if (pret == 0) {
+			// 	// let's run the loop anyway to send RC
+			// 	PX4_ERR("no data within 1 sec");
+			// }
 
-			if (pret < 0) {
-				PX4_WARN(" poll error");
-				// sleep a bit before next try
-				usleep(100000);
-				continue;
-			}			
+			// if (pret < 0) {
+			// 	PX4_WARN(" poll error");
+			// 	// sleep a bit before next try
+			// 	usleep(100);
+			// 	continue;
+			// }			
 			//s8 ret = sbp_process(&sbp_state, &fifo_read); used to be here
-			//if (ret < 0)
-	      	//	PX4_INFO("sbp_process error: %d\n", (int)ret);
-			if (fds[0].revents & POLLIN) {
+			s8 ret = sbp_process(&sbp_state, &fifo_read);
+			if (ret < 0){
+	      		PX4_INFO("sbp_process error: %d\n", (int)ret);
+	      		// PX4_INFO("fifo:");
+	      		// for(int i = 0; i < 512; i++)
+	      		// {
+	      		// 		printf("%02X ",sbp_msg_fifo[i]);
+						
+						
+	      		// }
+	      		// PX4_INFO("here3");
+	      		// PX4_INFO("buffer %02X",serial_buf[0]);
+			}
+			if (true){//fds[0].revents & POLLIN) {
 				int len = read(_uart_fd, serial_buf, sizeof(serial_buf));
 				//printf("%02x", *cp);
 				//PX4_INFO("%d", len);
 				if (len > 0) {
 					//mavlink_message_t msg;
+					for (int i = 0; i < len; i++) {	
+						 int test = fifo_write(serial_buf[i]);
+						 if(test == 0){
+						 	PX4_INFO("fifo full: %d \n",test );
+						 	}
 
-					for (int i = 0; i < len; ++i) {	
-						 fifo_write(serial_buf[i]);
-						  sbp_process(&sbp_state, &fifo_read);
+						  //sbp_process(&sbp_state, &fifo_read);
 						  	//PX4_INFO("sbp_process error: %d\n", (int)ret);
 							//if (mavlink_parse_char(MAVLINK_COMM_0, serial_buf[i], &msg, &serial_status)) {
 							// have a message, handle it
 							//handle_message(&msg);
-							//PX4_INFO("fifo %02X",sbp_msg_fifo[i]);
-							//PX4_INFO("buffer %02X",serial_buf[i]);
-							//PX4_INFO("here3");
+						
 					}
 				}
 			}
 
-		 DO_EVERY(10, // this was 100
+		 DO_EVERY(100, // this was 100
 	 
-		 // str_i = 0;
-	      //memset(str, 0, sizeof(str));
+		  str_i = 0;
+	      memset(str, 0, sizeof(str));
 	      pos.lat = pos_llh.lat* 1E7;  //TODO this could potentially be an issue since we are casting from double to int
 	      pos.lon = pos_llh.lon* 1E7;  //TODO also not sure if this is really * 1e7 (mavlink protocol says so but maybe px4 is diffrent)
   	      pos.alt = pos_llh.height* 1000; //aslo not sure of this conversionrate
@@ -332,27 +346,27 @@ int piksi_uart(int argc, char *argv[])
 		  pos.vdop = (dops.vdop/100);
 		  //PX4_INFO("%4.10lf", pos_llh.lat);
 		  //PX4_INFO("%ld",pos.lat);
-	      orb_publish(ORB_ID(vehicle_gps_position), _gps_pub, &pos);
+	      				//orb_publish(ORB_ID(vehicle_gps_position), _gps_pub, &pos);
 	      // all this is for debugging
-	      // str_i += sprintf(str + str_i, "\n\n\n\n");
+	      str_i += sprintf(str + str_i, "\n\n\n\n");
 
-	      // /* Print GPS time. */
-	      // str_i += sprintf(str + str_i, "GPS Time:\n");
-	      // str_i += sprintf(str + str_i, "\tWeek\t\t: %6d\n", (int)gps_time.wn);
-	      // sprintf(rj, "%6d", (gps_time.tow));
-	      // str_i += sprintf(str + str_i, "\tSeconds\t: %9s\n", rj);
-	      // str_i += sprintf(str + str_i, "\n");
+	      /* Print GPS time. */
+	      str_i += sprintf(str + str_i, "GPS Time:\n");
+	      str_i += sprintf(str + str_i, "\tWeek\t\t: %6d\n", (int)gps_time.wn);
+	      sprintf(rj, "%6d", (gps_time.tow));
+	      str_i += sprintf(str + str_i, "\tSeconds\t: %9s\n", rj);
+	      str_i += sprintf(str + str_i, "\n");
 
-	      // /* Print absolute position. */
-	      // str_i += sprintf(str + str_i, "Absolute Position:\n");
-	      // sprintf(rj, "%4.10lf", pos_llh.lat);
-	      // str_i += sprintf(str + str_i, "\tLatitude\t: %17s\n", rj);
-	      // sprintf(rj, "%4.10lf", pos_llh.lon);
-	      // str_i += sprintf(str + str_i, "\tLongitude\t: %17s\n", rj);
-	      // sprintf(rj, "%4.10lf", pos_llh.height);
-	      // str_i += sprintf(str + str_i, "\tHeight\t: %17s\n", rj);
-	      // str_i += sprintf(str + str_i, "\tSatellites\t:     %02d\n", pos_llh.n_sats);
-	      // str_i += sprintf(str + str_i, "\n");
+	      /* Print absolute position. */
+	      str_i += sprintf(str + str_i, "Absolute Position:\n");
+	      sprintf(rj, "%4.10lf", pos_llh.lat);
+	      str_i += sprintf(str + str_i, "\tLatitude\t: %17s\n", rj);
+	      sprintf(rj, "%4.10lf", pos_llh.lon);
+	      str_i += sprintf(str + str_i, "\tLongitude\t: %17s\n", rj);
+	      sprintf(rj, "%4.10lf", pos_llh.height);
+	      str_i += sprintf(str + str_i, "\tHeight\t: %17s\n", rj);
+	      str_i += sprintf(str + str_i, "\tSatellites\t:     %02d\n", pos_llh.n_sats);
+	      str_i += sprintf(str + str_i, "\n");
 
 	      // /* Print NED (North/East/Down) baseline (position vector from base to rover). */
 	      // str_i += sprintf(str + str_i, "Baseline (mm):\n");
@@ -382,7 +396,7 @@ int piksi_uart(int argc, char *argv[])
 	      // str_i += sprintf(str + str_i, "\tVDOP\t\t: %7s\n", rj);
 	      // str_i += sprintf(str + str_i, "\n");
 
-	      // PX4_INFO(str);
+	      PX4_INFO(str);
 	      );
 			// check if we have new rc data, if yes send it to snapdragon
 			//bool rc_updated = false;
@@ -417,7 +431,7 @@ int initialise_uart()
 	}
 PX4_INFO("here0");
 	// set baud rate
-	int speed = 115200;
+	int speed = 57600;//115200;
 	printf("%d\n", speed);
 	struct termios uart_config;
 	tcgetattr(_uart_fd, &uart_config);
