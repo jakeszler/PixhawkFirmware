@@ -41,6 +41,11 @@ px4_add_module(
 		devices/src/mtk.cpp
 		devices/src/ashtech.cpp
 		devices/src/ubx.cpp
+		devices/src/messages.cpp
+		devices/src/comms.cpp
+		devices/src/edc.c
+		devices/src/sbp.c
+		devices/src/tutorial_implementation.c
 	DEPENDS
 		platforms__common
 	)

@@ -49,12 +49,7 @@
 #include <poll.h>
 #include <string.h>
 #include <math.h>
-#include <systemlib/err.h>
 
-
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
 #include <systemlib/err.h>
 #include <systemlib/systemlib.h>
 
@@ -95,9 +90,6 @@
 #include <uORB/topics/vehicle_gps_position.h>
 
 
-#include "drivers/drv_pwm_output.h"
-#include <drivers/drv_hrt.h>
-
 
 #define MAX_LEN_DEV_PATH 32
 
@@ -114,7 +106,6 @@ static char _device[MAX_LEN_DEV_PATH];
 static int _uart_fd = -1;
 static bool _flow_control_enabled = false;
 
-hrt_abstime _last_actuator_controls_received = 0;
 
 
 
@@ -297,19 +288,20 @@ int piksi_uart(int argc, char *argv[])
 			// 	continue;
 			// }			
 			//s8 ret = sbp_process(&sbp_state, &fifo_read); used to be here
-			s8 ret = sbp_process(&sbp_state, &fifo_read);
-			if (ret < 0){
-	      		PX4_INFO("sbp_process error: %d\n", (int)ret);
-	      		// PX4_INFO("fifo:");
-	      		// for(int i = 0; i < 512; i++)
-	      		// {
-	      		// 		printf("%02X ",sbp_msg_fifo[i]);
+			//s8 ret = 
+			sbp_process(&sbp_state, &fifo_read);
+			// if (ret < 0){
+	  //     		PX4_INFO("sbp_process error: %d\n", (int)ret);
+	  //     		PX4_INFO("fifo:");
+	  //     		for(int i = 0; i < 512; i++)
+	  //     		{
+	  //     				printf("%02X ",sbp_msg_fifo[i]);
 						
 						
-	      		// }
-	      		// PX4_INFO("here3");
-	      		// PX4_INFO("buffer %02X",serial_buf[0]);
-			}
+	  //     		}
+	  //     		PX4_INFO("here3");
+	  //     		PX4_INFO("buffer %02X",serial_buf[0]);
+			// }
 			if (true){//fds[0].revents & POLLIN) {
 				int len = read(_uart_fd, serial_buf, sizeof(serial_buf));
 				//printf("%02x", *cp);
@@ -431,7 +423,7 @@ int initialise_uart()
 	}
 PX4_INFO("here0");
 	// set baud rate
-	int speed = 57600;//115200;
+	int speed = 115200;
 	printf("%d\n", speed);
 	struct termios uart_config;
 	tcgetattr(_uart_fd, &uart_config);
