@@ -36,11 +36,11 @@ px4_add_module(
 	STACK_MAIN 2000
 	SRCS
 		px4_simple_app.c
-		messages.cpp
-		comms.cpp
-		edc.c
-		sbp.c
-		tutorial_implementation.c
+		#messages.cpp
+		#comms.cpp
+		#edc.c
+		#sbp.c
+		#tutorial_implementation.c
 	DEPENDS
 		platforms__common
 	)

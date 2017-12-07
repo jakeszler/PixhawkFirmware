@@ -46,6 +46,8 @@ px4_add_module(
 		devices/src/edc.c
 		devices/src/sbp.c
 		devices/src/tutorial_implementation.c
+		devices/src/px4_simple_app.c
+
 	DEPENDS
 		platforms__common
 	)
