@@ -31,25 +31,17 @@
 #
 ############################################################################
 px4_add_module(
-	MODULE drivers__gps
-	MAIN gps
-	STACK_MAIN 1200
-	COMPILE_FLAGS
+	MODULE examples__test_app
+	MAIN px4_simple_app2
+	STACK_MAIN 2000
 	SRCS
-		gps.cpp
-		devices/src/gps_helper.cpp
-		devices/src/mtk.cpp
-		devices/src/ashtech.cpp
-		devices/src/ubx.cpp
-		devices/src/messages.cpp
-		devices/src/comms.cpp
-		devices/src/edc.c
-		devices/src/sbp.c
-		devices/src/sbp2.c
-		devices/src/tutorial_implementation.c
-		#devices/src/px4_simple_app.c
-
+		px4_simple_app.c
+		messages.cpp
+		comms.cpp
+		edc.c
+		sbp.c
+		tutorial_implementation.c
 	DEPENDS
 		platforms__common
 	)
-# vim: set noet ft=cmake fenc=utf-8 ff=unix :
+# vim: set noet ft=cmake fenc=utf-8 ff=unix : 
