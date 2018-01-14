@@ -47,13 +47,9 @@ px4_add_module(
 		devices/src/sbp.c
 		devices/src/sbp2.c
 		devices/src/tutorial_implementation.c
-<<<<<<< HEAD
 		devices/src/sbp2.c
 		#devices/src/util.c
-=======
 		#devices/src/px4_simple_app.c
->>>>>>> save-my-work
-
 	DEPENDS
 		platforms__common
 	)
