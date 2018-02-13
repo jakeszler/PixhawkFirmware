@@ -365,6 +365,7 @@ main_state_transition(struct vehicle_status_s *status, main_state_t new_main_sta
 	case commander_state_s::MAIN_STATE_MANUAL:
 	case commander_state_s::MAIN_STATE_STAB:
 	case commander_state_s::MAIN_STATE_ACRO:
+	case commander_state_s::MAIN_STATE_TVLQR:
 	case commander_state_s::MAIN_STATE_RATTITUDE:
 		ret = TRANSITION_CHANGED;
 		break;
@@ -569,6 +570,7 @@ bool set_nav_state(struct vehicle_status_s *status,
 	case commander_state_s::MAIN_STATE_RATTITUDE:
 	case commander_state_s::MAIN_STATE_STAB:
 	case commander_state_s::MAIN_STATE_ALTCTL:
+	case commander_state_s::MAIN_STATE_TVLQR:
 
 		/* require RC for all manual modes */
 		if (rc_lost && is_armed) {
@@ -596,6 +598,10 @@ bool set_nav_state(struct vehicle_status_s *status,
 
 			case commander_state_s::MAIN_STATE_ALTCTL:
 				status->nav_state = vehicle_status_s::NAVIGATION_STATE_ALTCTL;
+				break;
+
+			case commander_state_s::MAIN_STATE_TVLQR:
+				status->nav_state = vehicle_status_s::NAVIGATION_STATE_TVLQR;
 				break;
 
 			default:
