@@ -169,7 +169,7 @@ private:
 
 	orb_advert_t	_sensor_pub;			/**< combined sensor data topic */
 	orb_advert_t	_battery_pub[BOARD_NUMBER_BRICKS] = {nullptr};			/**< battery status */
-	int 			_battery_pub_intance0ndx = 0; /**< track the index of instance 0 */
+	int 			_battery_pub_intance0ndx = {0}; /**< track the index of instance 0 */
 	orb_advert_t	_airspeed_pub;			/**< airspeed */
 	orb_advert_t	_diff_pres_pub;			/**< differential_pressure */
 	orb_advert_t	_sensor_preflight;		/**< sensor preflight topic */
@@ -457,7 +457,7 @@ Sensors::adc_poll(struct sensor_combined_s &raw)
 		 */
 
 		int selected_source = -1;
-		orb_advert_t tmp_h = nullptr;
+		//orb_advert_t tmp_h = nullptr;
 
 		if (ret >= (int)sizeof(buf_adc[0])) {
 
@@ -507,12 +507,12 @@ Sensors::adc_poll(struct sensor_combined_s &raw)
 							selected_source = b;
 
 							/* Move the selected_source to instance 0 */
-							if (_battery_pub_intance0ndx != b) {
+							if (_battery_pub_intance0ndx != selected_source) {
 
-								tmp_h = _battery_pub[_battery_pub_intance0ndx];
-								_battery_pub[_battery_pub_intance0ndx] = _battery_pub[b];
-								_battery_pub[b] = tmp_h;
-								_battery_pub_intance0ndx = b;
+								//orb_advert_t tmp_h = _battery_pub[_battery_pub_intance0ndx];
+								//_battery_pub[_battery_pub_intance0ndx] = _battery_pub[b];
+								//_battery_pub[b] = tmp_h;
+								_battery_pub_intance0ndx = selected_source;
 							}
 						}
 

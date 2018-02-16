@@ -65,6 +65,9 @@ uint32 VEHICLE_CMD_DO_VTOL_TRANSITION = 3000    # Command VTOL transition
 uint32 VEHICLE_CMD_PAYLOAD_PREPARE_DEPLOY = 30001	# Prepare a payload deployment in the flight plan
 uint32 VEHICLE_CMD_PAYLOAD_CONTROL_DEPLOY = 30002	# Control a pre-programmed payload deployment
 uint32 VEHICLE_CMD_PREFLIGHT_UAVCAN = 243		# UAVCAN configuration. If param 1 == 1 actuator mapping and direction assignment should be started
+uint32 VEHICLE_CMD_TVLQR_START = 31001	# Prepare a payload deployment in the flight plan
+uint32 VEHICLE_CMD_TVLQR_TERMINATE = 31002	# Control a pre-programmed payload deployment
+
 uint32 VEHICLE_CMD_LOGGING_START = 2510		# start streaming ULog data
 uint32 VEHICLE_CMD_LOGGING_STOP = 2511			# stop streaming ULog data
 
