@@ -46,7 +46,7 @@ public:
      */
     int start();
     float* qconjugate(float*);
-    float* qmultiply(float q1, float q2);
+    float* qmultiply(float q1[], float q2[]);
 
     /**
      * This function handles the Mavlink command long messages
@@ -160,15 +160,16 @@ return q;
 float* TVLQRControl::qmultiply(float q1[4],  float q2[4])
 {
 
- 	float* qresult[4]; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};  
+ 	float *qresult[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};  
 
- 	qresult[0] = q1[0]*q2[0]- q1[1]*q2[1] - q1[2]*q2[2] - q1[3]*q2[3];
-qresult[1] = q1[0]*q2[1] + q1[1]*q2[0] + q1[2]*q2[3] - q1[3]*q2[2];
-qresult[2] = q1[0]*q2[2] + q1[2]*q2[0] - q1[1]*q2[3] + q1[3]*q2[1];
-qresult[3] = q1[0]*q2[3] + q1[1]*q2[2] - q1[2]*q2[1] + q1[3]*q2[0];
+ 	*qresult[0] = q1[0] * q2[0]- q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3];
+	*qresult[1] = q1[0] * q2[1] + q1[1] * q2[0] + q1[2] * q2[3] - q1[3] * q2[2];
+	*qresult[2] = q1[0] * q2[2] + q1[2] * q2[0] - q1[1] * q2[3] + q1[3] * q2[1];
+	*qresult[3] = q1[0] * q2[3] + q1[1]	* q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
 
-	return qresult;
+	return *qresult;
 }
+
 void TVLQRControl::task_main()
 {
     /* make sure slip_state is disabled at initialization */
@@ -244,6 +245,11 @@ void TVLQRControl::task_main()
         /*
          * switch to faster update during the flip
          */
+   		float q[4] = {*_attitude.q};
+		
+        double delta_x[13][40];
+
+
         while ((_tvlqr_state > TVLQR_STATE_DISABLED)){//&&(_vehicle_control_mode.flag_control_flip_enabled)){
             // update commands
             orb_check(_command_sub, &updated);
@@ -285,13 +291,42 @@ void TVLQRControl::task_main()
                  * 400 degree/second roll to 45 degrees
             //      */
 
-             float q[4] = {*_attitude.q};
-             float q0[4] = {(float) x0[0][_time_step], (float) x0[1][_time_step], (float) x0[2][_time_step],(float) x0[3][_time_step]};
+         		float q0[4] = {(float) x0[0][_time_step], (float) x0[1][_time_step], (float) x0[2][_time_step],(float) x0[3][_time_step]};
+				float q0con[4] = {*qconjugate(q0)};
+        		double qdiff[4] = {*qmultiply(q0con,q)};
 
-             float q0con[4] = {*qconjugate(q0)};
+             	delta_x[0][_time_step] = {_global_position.lat-(x0[0][_time_step])};
+             	delta_x[1][_time_step] = {_global_position.lon-x0[1][_time_step]};
+             	delta_x[2][_time_step] = {(double)_global_position.alt-x0[2][_time_step]};
+
+             	delta_x[3][_time_step] = {(double)qdiff[0]};
+             	delta_x[4][_time_step] = {(double)qdiff[1]};
+             	delta_x[5][_time_step] = {(double)qdiff[2]};
+             	delta_x[6][_time_step] = {(double)qdiff[3]};
+
+             	delta_x[7][_time_step] = {(double)_global_position.vel_n-x0[7][_time_step]};
+             	delta_x[8][_time_step] = {(double)_global_position.vel_e-x0[8][_time_step]};
+             	delta_x[9][_time_step] = {(double)_global_position.vel_d-x0[9][_time_step]};
 
 
-             qdiff = qmultiply(*q0con,*q);
+             	delta_x[10][_time_step] = {(double)_attitude.rollspeed-x0[10][_time_step]};
+             	delta_x[11][_time_step] = {(double)_attitude.pitchspeed-x0[11][_time_step]};
+             	delta_x[12][_time_step] = {(double)_attitude.yawspeed-x0[12][_time_step]};
+
+
+
+             	double u[12];
+
+             	for(int i = 0; i <12; i++){
+             		
+             	}
+             	
+             	printf("%d",delta_x[1]);
+             	printf("%d",qdiff[0]);
+
+             //matrix multiply
+             
+
 
                 while(_attitude.timestamp > t[_time_step + 1])
                 {
