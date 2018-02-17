@@ -21,6 +21,16 @@
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_status.h>
 #include "K_header_file_discrete_tvlqr.cpp"
+
+#include <drivers/drv_pwm_output.h>
+#include <uORB/topics/actuator_direct.h>
+#include <drivers/drv_hrt.h>
+
+
+#define _esc_pwm_min 400
+#define _esc_pwm_max 2100
+#define _max_channel 8
+
 /*
  * TVLQR_Control.cpp
  *
@@ -47,6 +57,7 @@ public:
     int start();
     float* qconjugate(float*);
     float* qmultiply(float q1[], float q2[]);
+    void _publish_actuators(void);
 
     /**
      * This function handles the Mavlink command long messages
@@ -156,6 +167,48 @@ q[2] = -q[2];
 q[3] = -q[3];
 return q;
 }
+
+
+void TVLQRControl::_publish_actuators(void)
+{
+        struct actuator_direct_s actuators;
+ 
+    if (_esc_pwm_min == 0 ||
+        _esc_pwm_max == 0) {
+        // not initialised yet
+        return;
+    }
+ 
+        actuators.nvalues = _max_channel;
+    if (actuators.nvalues > actuators.NUM_ACTUATORS_DIRECT) {
+        actuators.nvalues = actuators.NUM_ACTUATORS_DIRECT;
+    }
+    // don't publish more than 8 actuators for now, as the uavcan ESC
+    // driver refuses to update any motors if you try to publish more
+    // than 8
+    if (actuators.nvalues > 8) {
+        actuators.nvalues = 8;
+    }
+   // bool armed = hal.util->get_soft_armed();
+        actuators.timestamp = hrt_absolute_time();
+    for (uint8_t i=0; i<actuators.nvalues; i++) {
+       // if (!armed) {
+         //   actuators.values[i] = 0;
+        //} else {
+            actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
+        //}
+        // actuator values are from -1 to 1
+        actuators.values[i] = actuators.values[i]*2 - 1;
+    }
+ 
+    if (_actuator_direct_pub == nullptr) {
+        _actuator_direct_pub = orb_advertise(ORB_ID(actuator_direct), &actuators);
+    } else {
+        orb_publish(ORB_ID(actuator_direct), _actuator_direct_pub, &actuators);
+    }
+}
+ 
+
 
 float* TVLQRControl::qmultiply(float q1[4],  float q2[4])
 {
@@ -318,9 +371,11 @@ void TVLQRControl::task_main()
              	double u[12];
 
              	for(int i = 0; i <12; i++){
-             		
+             		u[i] = -K[i][_time_step]*delta_x[i][_time_step] + u;
              	}
              	
+
+
              	printf("%d",delta_x[1]);
              	printf("%d",qdiff[0]);
 
