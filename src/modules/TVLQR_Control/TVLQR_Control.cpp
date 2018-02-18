@@ -57,7 +57,8 @@ public:
     int start();
     float* qconjugate(float*);
     float* qmultiply(float q1[], float q2[]);
-    void _publish_actuators(void);
+    double* K_deltax(double dx[], double Ki[]);
+    void _publish_actuators(double u_com[]);
 
     /**
      * This function handles the Mavlink command long messages
@@ -169,8 +170,12 @@ return q;
 }
 
 
-void TVLQRControl::_publish_actuators(void)
+void TVLQRControl::_publish_actuators(double u_com[4])
 {
+        //Temp ZZ
+      //  uint8_t _period[4] = {0,0,0,0};
+        void* _actuator_direct_pub = nullptr;
+
         struct actuator_direct_s actuators;
  
     if (_esc_pwm_min == 0 ||
@@ -195,7 +200,8 @@ void TVLQRControl::_publish_actuators(void)
        // if (!armed) {
          //   actuators.values[i] = 0;
         //} else {
-            actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
+           actuators.values[i] = u_com[i];
+        //actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
         //}
         // actuator values are from -1 to 1
         actuators.values[i] = actuators.values[i]*2 - 1;
@@ -221,6 +227,22 @@ float* TVLQRControl::qmultiply(float q1[4],  float q2[4])
 	*qresult[3] = q1[0] * q2[3] + q1[1]	* q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
 
 	return *qresult;
+}
+
+double* TVLQRControl::K_deltax(double dx[12],  double Ki[48])
+{
+
+        double *u_com[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};
+
+        for (uint8_t i = 0; i<=3; i++) {
+
+        *u_com[i] = dx[0]*Ki[i] + dx[1]*Ki[i+4] + dx[2]*Ki[i+8] + dx[3]*Ki[i+12] +
+                    dx[4]*Ki[i+16] + dx[5]*Ki[i+20] + dx[6]*Ki[i+24] + dx[7]*Ki[i+28] +
+                    dx[8]*Ki[i+32] + dx[9]*Ki[i+36] + dx[10]*Ki[i+40] + dx[11]*Ki[i+44];
+
+        }
+
+        return *u_com;
 }
 
 void TVLQRControl::task_main()
@@ -300,7 +322,7 @@ void TVLQRControl::task_main()
          */
    		float q[4] = {*_attitude.q};
 		
-        double delta_x[13][40];
+        double delta_x[12];
 
 
         while ((_tvlqr_state > TVLQR_STATE_DISABLED)){//&&(_vehicle_control_mode.flag_control_flip_enabled)){
@@ -348,31 +370,44 @@ void TVLQRControl::task_main()
 				float q0con[4] = {*qconjugate(q0)};
         		double qdiff[4] = {*qmultiply(q0con,q)};
 
-             	delta_x[0][_time_step] = {_global_position.lat-(x0[0][_time_step])};
-             	delta_x[1][_time_step] = {_global_position.lon-x0[1][_time_step]};
-             	delta_x[2][_time_step] = {(double)_global_position.alt-x0[2][_time_step]};
+                delta_x[0] = {_global_position.lat-(x0[0][_time_step])};
+                delta_x[1] = {_global_position.lon-x0[1][_time_step]};
+                delta_x[2] = {(double)_global_position.alt-x0[2][_time_step]};
 
-             	delta_x[3][_time_step] = {(double)qdiff[0]};
-             	delta_x[4][_time_step] = {(double)qdiff[1]};
-             	delta_x[5][_time_step] = {(double)qdiff[2]};
-             	delta_x[6][_time_step] = {(double)qdiff[3]};
+                //delta_x[3] = {(double)qdiff[0]};
+                delta_x[3] = {(double)qdiff[1]};
+                delta_x[4] = {(double)qdiff[2]};
+                delta_x[5] = {(double)qdiff[3]};
 
-             	delta_x[7][_time_step] = {(double)_global_position.vel_n-x0[7][_time_step]};
-             	delta_x[8][_time_step] = {(double)_global_position.vel_e-x0[8][_time_step]};
-             	delta_x[9][_time_step] = {(double)_global_position.vel_d-x0[9][_time_step]};
-
-
-             	delta_x[10][_time_step] = {(double)_attitude.rollspeed-x0[10][_time_step]};
-             	delta_x[11][_time_step] = {(double)_attitude.pitchspeed-x0[11][_time_step]};
-             	delta_x[12][_time_step] = {(double)_attitude.yawspeed-x0[12][_time_step]};
+                delta_x[6] = {(double)_global_position.vel_n-x0[7][_time_step]};
+                delta_x[7] = {(double)_global_position.vel_e-x0[8][_time_step]};
+                delta_x[8] = {(double)_global_position.vel_d-x0[9][_time_step]};
 
 
+                delta_x[9] = {(double)_attitude.rollspeed-x0[10][_time_step]};
+                delta_x[10] = {(double)_attitude.pitchspeed-x0[11][_time_step]};
+                delta_x[11] = {(double)_attitude.yawspeed-x0[12][_time_step]};
 
-             	double u[12];
+                double Ki[48];
+                for(uint8_t i = 0; i < 48; ++i)
+                {
+                    Ki[i] = K[i][_time_step];
+                }
+                //u = -K*deltax+u0
+                double u_com[4] = {*K_deltax(delta_x,  Ki)};
+                u_com[0] = -1*u_com[0] + u0[0][_time_step];
+                u_com[1] = -1*u_com[1] + u0[1][_time_step];
+                u_com[2] = -1*u_com[2] + u0[2][_time_step];
+                u_com[3] = -1*u_com[3] + u0[3][_time_step];
+                _publish_actuators(u_com);
 
-             	for(int i = 0; i <12; i++){
-             		u[i] = -K[i][_time_step]*delta_x[i][_time_step] + u;
-             	}
+             //   double u[4];
+
+             //	for(int i = 0; i <12; i++){
+             //           
+             //           float u_com[4] = {*K_deltax(float delta_x[12],  float Ki[48])};
+             //		u[i] = -K[i][_time_step]*delta_x[i][_time_step] + u;
+             //	}
              	
 
 

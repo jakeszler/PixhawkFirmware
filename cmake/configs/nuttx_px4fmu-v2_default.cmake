@@ -13,7 +13,7 @@ set(config_module_list
 	drivers/device
 	drivers/stm32
 	drivers/stm32/adc
-	drivers/stm32/tone_alarm
+	#drivers/stm32/tone_alarm
 	drivers/led
 	drivers/px4fmu
 	drivers/px4io
@@ -36,11 +36,11 @@ set(config_module_list
 	#drivers/hott/hott_telemetry
 	#drivers/hott/hott_sensors
 	#drivers/blinkm
-	drivers/airspeed
-	drivers/ets_airspeed
-	drivers/ms4525_airspeed
-	drivers/ms5525_airspeed
-	drivers/sdp3x_airspeed
+	#drivers/airspeed
+	#drivers/ets_airspeed
+	#drivers/ms4525_airspeed
+	#drivers/ms5525_airspeed
+	#drivers/sdp3x_airspeed
 	drivers/frsky_telemetry
 	modules/sensors
 	#drivers/mkblctrl
@@ -48,12 +48,12 @@ set(config_module_list
 	#drivers/oreoled
 	drivers/vmount
 	drivers/pwm_input
-	drivers/camera_trigger
+	#drivers/camera_trigger
 	drivers/bst
 	#drivers/snapdragon_rc_pwm
 	drivers/lis3mdl
 	#drivers/iridiumsbd
-	drivers/ulanding
+	#drivers/ulanding
 
 	#
 	# System commands
@@ -62,7 +62,7 @@ set(config_module_list
 	systemcmds/config
 	#systemcmds/dumpfile
 	#systemcmds/esc_calib
-	systemcmds/hardfault_log
+	#systemcmds/hardfault_log
 	systemcmds/mixer
 	#systemcmds/motor_ramp
 	systemcmds/mtd
@@ -73,7 +73,7 @@ set(config_module_list
 	systemcmds/reboot
 	#systemcmds/sd_bench
 	systemcmds/top
-	#systemcmds/topic_listener
+	systemcmds/topic_listener
 	systemcmds/ver
 
 	#
@@ -100,7 +100,7 @@ set(config_module_list
 	modules/gpio_led
 	#modules/uavcan
 	modules/land_detector
-	modules/camera_feedback
+	#modules/camera_feedback
 
 	#
 	# Estimation modules
@@ -119,7 +119,7 @@ set(config_module_list
 	modules/gnd_pos_control
 	modules/mc_att_control
 	modules/mc_pos_control
-	modules/vtol_att_control
+	#modules/vtol_att_control
 	modules/TVLQR_Control
 
 	#
