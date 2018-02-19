@@ -69,6 +69,8 @@ public:
      * little function to print current flip state
      */
     void print_state();
+
+    void print_data();
     /**
      * check for changes in vehicle control mode
      */
@@ -77,6 +79,25 @@ private:
     bool         _task_should_exit;         /**< if true, main task should exit */
     int         _tvlqr_task;                /**< task handle */
     int         _time_step;
+    //int         _x_state;
+    int         _x_cur1;
+    int         _x_cur2;
+    int         _x_cur3;
+    int         _x_cur4;
+    int         _x_cur5;
+    int         _x_cur6;
+    int         _x_cur7;
+    int         _x_cur8;
+    int         _x_cur9;
+    int         _x_cur10;
+    int         _x_cur11;
+    int         _x_cur12;
+    int         _x_cur13;
+    //int         _u0_cur;
+    int         _u_com1;
+    int         _u_com2;
+    int         _u_com3;
+    int         _u_com4;
     enum TVLQR_STATE {
             TVLQR_STATE_DISABLED = 0,
             TVLQR_STATE_START = 1,
@@ -112,6 +133,23 @@ TVLQRControl::TVLQRControl() :
         _task_should_exit(false),
         _tvlqr_task(-1),
         _time_step(0),
+        _x_cur1(1),
+        _x_cur2(2),
+        _x_cur3(3),
+        _x_cur4(4),
+        _x_cur5(5),
+        _x_cur6(6),
+        _x_cur7(7),
+        _x_cur8(8),
+        _x_cur9(9),
+        _x_cur10(10),
+        _x_cur11(11),
+        _x_cur12(12),
+        _x_cur13(13),
+        _u_com1(1),
+        _u_com2(2),
+        _u_com3(3),
+        _u_com4(4),
         _tvlqr_state(TVLQR_STATE_DISABLED),
         _command_sub(-1),
         _vehicle_control_mode_sub(-1),
@@ -134,6 +172,12 @@ TVLQRControl::~TVLQRControl()
 void TVLQRControl::print_state()
 {
     warnx("Current tvlqr state is %d", _tvlqr_state);
+}
+void TVLQRControl::print_data()
+{
+    warnx("Current x is {%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d},\n u_com is {%d,%d,%d,%d}",
+        _x_cur1,_x_cur2,_x_cur3,_x_cur4,_x_cur5,_x_cur6,_x_cur7,_x_cur8,_x_cur9,_x_cur10,_x_cur11,_x_cur12,_x_cur13,
+        _u_com1,_u_com2,_u_com3,_u_com4);
 }
 void TVLQRControl::handle_command(struct vehicle_command_s *cmd)
 {
@@ -267,7 +311,7 @@ void TVLQRControl::task_main()
     /* subscribe to vehicle attitude topic */
     _vehicle_attitude_sub = orb_subscribe(ORB_ID(vehicle_attitude));
     /* subscribe to the global position topic */
-    _vehicle_attitude_sub = orb_subscribe(ORB_ID(vehicle_global_position));
+    _vehicle_global_position_sub = orb_subscribe(ORB_ID(vehicle_global_position));
     /* advertise control mode topic */
     _vehicle_control_mode_pub = orb_advertise(ORB_ID(vehicle_control_mode), &_vehicle_control_mode);
     /* advertise rate setpoint topic */
@@ -281,7 +325,9 @@ void TVLQRControl::task_main()
     /*
      * initialize file descriptor to listen to vehicle_command
      */
-    fds[0].fd = _command_sub;
+    //fds[0].fd = _command_sub;
+    //fds[0].events = POLLIN;
+    fds[0].fd = _vehicle_attitude_sub;
     fds[0].events = POLLIN;
     /* start main slow loop */
     while (!_task_should_exit) {
@@ -292,6 +338,7 @@ void TVLQRControl::task_main()
          * skip loop
          */
         if (pret == 0) {
+            warnx("Im at 339 somehow");
             continue;
         }
         /*
@@ -324,8 +371,8 @@ void TVLQRControl::task_main()
 		
         double delta_x[12];
 
-
         while ((_tvlqr_state > TVLQR_STATE_DISABLED)){//&&(_vehicle_control_mode.flag_control_flip_enabled)){
+            warnx("376");
             // update commands
             orb_check(_command_sub, &updated);
             if (updated) {
@@ -359,13 +406,14 @@ void TVLQRControl::task_main()
              case TVLQR_STATE_DISABLED:
             //     // shoudn't even enter this but just in case
             //     // do nothing
+             warnx("disabled");
                  break;
              case TVLQR_STATE_START:
              {
                 /*
                  * 400 degree/second roll to 45 degrees
             //      */
-
+                warnx("running");
          		float q0[4] = {(float) x0[0][_time_step], (float) x0[1][_time_step], (float) x0[2][_time_step],(float) x0[3][_time_step]};
 				float q0con[4] = {*qconjugate(q0)};
         		double qdiff[4] = {*qmultiply(q0con,q)};
@@ -401,6 +449,12 @@ void TVLQRControl::task_main()
                 u_com[3] = -1*u_com[3] + u0[3][_time_step];
                 _publish_actuators(u_com);
 
+                //For printing and debugging
+                _u_com1 = u_com[0];
+                _u_com2 = u_com[1];
+                _u_com3 = u_com[2];
+                _u_com4 = u_com[3];
+
              //   double u[4];
 
              //	for(int i = 0; i <12; i++){
@@ -411,8 +465,8 @@ void TVLQRControl::task_main()
              	
 
 
-             	printf("%d",delta_x[1]);
-             	printf("%d",qdiff[0]);
+             	//printf("%d",(int)delta_x[1]);
+             	//printf("%d",qdiff[0]);
 
              //matrix multiply
              
@@ -494,7 +548,7 @@ int TVLQR_control_main(int argc, char *argv[])
 {
     /* warn if no input argument */
     if (argc < 2) {
-        warnx("usage: TVLQR_Control {start|stop|status|state}");
+        warnx("usage: TVLQR_Control {start|stop|status|state|data}");
         return 1;
     }
     /* start TVLQR_Control manually */
@@ -539,6 +593,10 @@ int TVLQR_control_main(int argc, char *argv[])
     /* print current flip_state */
     if (!strcmp(argv[1], "state")) {
         TVLQR_Control::g_tvlqr->print_state();
+        return 0;
+    }
+    if (!strcmp(argv[1], "data")) {
+        TVLQR_Control::g_tvlqr->print_data();
         return 0;
     }
     /* if argument is not in one of the if statement */
