@@ -14,7 +14,7 @@
 #include <uORB/uORB.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_attitude.h>
-#include <uORB/topics/vehicle_global_position.h>
+#include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/control_state.h>
@@ -79,25 +79,29 @@ private:
     bool         _task_should_exit;         /**< if true, main task should exit */
     int         _tvlqr_task;                /**< task handle */
     int         _time_step;
+    double         _t_init; //Initial time when program is started
     //int         _x_state;
-    int         _x_cur1;
-    int         _x_cur2;
-    int         _x_cur3;
-    int         _x_cur4;
-    int         _x_cur5;
-    int         _x_cur6;
-    int         _x_cur7;
-    int         _x_cur8;
-    int         _x_cur9;
-    int         _x_cur10;
-    int         _x_cur11;
-    int         _x_cur12;
-    int         _x_cur13;
+    double         _x_init;
+    double         _y_init;
+    double         _z_init;
+    double         _x_cur1;
+    double         _x_cur2;
+    double         _x_cur3;
+    double         _x_cur4;
+    double         _x_cur5;
+    double         _x_cur6;
+    double         _x_cur7;
+    double         _x_cur8;
+    double         _x_cur9;
+    double         _x_cur10;
+    double         _x_cur11;
+    double         _x_cur12;
+    double         _x_cur13;
     //int         _u0_cur;
-    int         _u_com1;
-    int         _u_com2;
-    int         _u_com3;
-    int         _u_com4;
+    double         _u_com1;
+    double         _u_com2;
+    double         _u_com3;
+    double         _u_com4;
     enum TVLQR_STATE {
             TVLQR_STATE_DISABLED = 0,
             TVLQR_STATE_START = 1,
@@ -107,14 +111,14 @@ private:
     int         _command_sub;
     int         _vehicle_control_mode_sub;
     int         _vehicle_attitude_sub;
-    int         _vehicle_global_position_sub;
+    int         _vehicle_local_position_sub;
     /* publications */
     orb_advert_t     _vehicle_control_mode_pub;
     orb_advert_t     _vehicle_rates_setpoint_pub;
     struct vehicle_command_s         _command;                /**< vehicle commands */
     struct vehicle_control_mode_s     _vehicle_control_mode;     /**< vehicle control mode */
     struct vehicle_attitude_s         _attitude;                /**< vehicle attitude */
-    struct vehicle_global_position_s    _global_position;
+    struct vehicle_local_position_s    _local_position;
     struct vehicle_rates_setpoint_s _vehicle_rates_setpoint;            /**< vehicle rate setpoint */
     /**
      * Shim for calling task_main from task_create
@@ -133,6 +137,10 @@ TVLQRControl::TVLQRControl() :
         _task_should_exit(false),
         _tvlqr_task(-1),
         _time_step(0),
+        _t_init(0),
+        _x_init(0),
+        _y_init(0),
+        _z_init(0),
         _x_cur1(1),
         _x_cur2(2),
         _x_cur3(3),
@@ -154,14 +162,14 @@ TVLQRControl::TVLQRControl() :
         _command_sub(-1),
         _vehicle_control_mode_sub(-1),
         _vehicle_attitude_sub(-1),
-        _vehicle_global_position_sub(-1),
+        _vehicle_local_position_sub(-1),
         _vehicle_control_mode_pub(nullptr),
         _vehicle_rates_setpoint_pub(nullptr)
 {
     memset(&_command, 0, sizeof(_command));
     memset(&_vehicle_control_mode, 0, sizeof(_vehicle_control_mode));
     memset(&_attitude, 0, sizeof(_attitude));
-    memset(&_global_position, 0, sizeof(_global_position));
+    memset(&_local_position, 0, sizeof(_local_position));
     memset(&_vehicle_rates_setpoint, 0, sizeof(_vehicle_rates_setpoint));
 }
 TVLQRControl::~TVLQRControl()
@@ -175,9 +183,9 @@ void TVLQRControl::print_state()
 }
 void TVLQRControl::print_data()
 {
-    warnx("Current x is {%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d},\n u_com is {%d,%d,%d,%d}",
+    warnx("Current x is {%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf},\n u_com is {%lf,%lf,%lf,%lf}\n t_init is %d",
         _x_cur1,_x_cur2,_x_cur3,_x_cur4,_x_cur5,_x_cur6,_x_cur7,_x_cur8,_x_cur9,_x_cur10,_x_cur11,_x_cur12,_x_cur13,
-        _u_com1,_u_com2,_u_com3,_u_com4);
+        _u_com1,_u_com2,_u_com3,_u_com4,_t_init);
 }
 void TVLQRControl::handle_command(struct vehicle_command_s *cmd)
 {
@@ -263,30 +271,29 @@ void TVLQRControl::_publish_actuators(double u_com[4])
 float* TVLQRControl::qmultiply(float q1[4],  float q2[4])
 {
 
- 	float *qresult[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};  
+ 	static float qresult[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};  
+ 	qresult[0] = q1[0] * q2[0]- q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3];
+	qresult[1] = q1[0] * q2[1] + q1[1] * q2[0] + q1[2] * q2[3] - q1[3] * q2[2];
+	qresult[2] = q1[0] * q2[2] + q1[2] * q2[0] - q1[1] * q2[3] + q1[3] * q2[1];
+	qresult[3] = q1[0] * q2[3] + q1[1]	* q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
 
- 	*qresult[0] = q1[0] * q2[0]- q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3];
-	*qresult[1] = q1[0] * q2[1] + q1[1] * q2[0] + q1[2] * q2[3] - q1[3] * q2[2];
-	*qresult[2] = q1[0] * q2[2] + q1[2] * q2[0] - q1[1] * q2[3] + q1[3] * q2[1];
-	*qresult[3] = q1[0] * q2[3] + q1[1]	* q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
-
-	return *qresult;
+	return qresult;
 }
 
 double* TVLQRControl::K_deltax(double dx[12],  double Ki[48])
 {
 
-        double *u_com[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};
+       static double u_com[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};
 
         for (uint8_t i = 0; i<=3; i++) {
 
-        *u_com[i] = dx[0]*Ki[i] + dx[1]*Ki[i+4] + dx[2]*Ki[i+8] + dx[3]*Ki[i+12] +
+        u_com[i] = dx[0]*Ki[i] + dx[1]*Ki[i+4] + dx[2]*Ki[i+8] + dx[3]*Ki[i+12] +
                     dx[4]*Ki[i+16] + dx[5]*Ki[i+20] + dx[6]*Ki[i+24] + dx[7]*Ki[i+28] +
                     dx[8]*Ki[i+32] + dx[9]*Ki[i+36] + dx[10]*Ki[i+40] + dx[11]*Ki[i+44];
 
         }
 
-        return *u_com;
+        return u_com;
 }
 
 void TVLQRControl::task_main()
@@ -311,7 +318,7 @@ void TVLQRControl::task_main()
     /* subscribe to vehicle attitude topic */
     _vehicle_attitude_sub = orb_subscribe(ORB_ID(vehicle_attitude));
     /* subscribe to the global position topic */
-    _vehicle_global_position_sub = orb_subscribe(ORB_ID(vehicle_global_position));
+    _vehicle_local_position_sub = orb_subscribe(ORB_ID(vehicle_local_position));
     /* advertise control mode topic */
     _vehicle_control_mode_pub = orb_advertise(ORB_ID(vehicle_control_mode), &_vehicle_control_mode);
     /* advertise rate setpoint topic */
@@ -367,14 +374,16 @@ void TVLQRControl::task_main()
         /*
          * switch to faster update during the flip
          */
-   		float q[4] = {*_attitude.q};
-		
-        double delta_x[12];
-        if(_tvlqr_state != 0){
+
+        if(_tvlqr_state == 1){
         warnx("Current tvlqr state is %d", _tvlqr_state);
+        _t_init = _attitude.timestamp;
+        _x_init = _local_position.x+6;
+        _y_init = _local_position.y;
+        _z_init = _local_position.z+1.5;
+
         }
         while ((_tvlqr_state > TVLQR_STATE_DISABLED)){//&&(_vehicle_control_mode.flag_control_flip_enabled)){
- 
             // update commands
             orb_check(_command_sub, &updated);
             if (updated) {
@@ -415,23 +424,37 @@ void TVLQRControl::task_main()
                 /*
                  * 400 degree/second roll to 45 degrees
             //      */
-                warnx("running");
-         		float q0[4] = {(float) x0[0][_time_step], (float) x0[1][_time_step], (float) x0[2][_time_step],(float) x0[3][_time_step]};
-				float q0con[4] = {*qconjugate(q0)};
+                float q[4] = {*_attitude.q};
+        
+                double delta_x[12];
+                //warnx("attitude timestamp = %d \n t_init %d \n T_end %lf",_attitude.timestamp-_t_init,_t_init,t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6));
+                if(_attitude.timestamp-_t_init >= t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6)){
+                     _tvlqr_state = TVLQR_STATE_FINISHED;
+                     break;
+                }
+                while((_attitude.timestamp-_t_init > t[_time_step + 1]*pow(10,6))&&(_attitude.timestamp-_t_init < t[_time_step + 2]*pow(10,6)))
+                {
+                    ++_time_step;
+                //warnx("Timestep %d",_time_step);
+                }
+
+         		float q0[4] = {(float) x0[3][_time_step], (float) x0[4][_time_step], (float) x0[5][_time_step],(float) x0[6][_time_step]};
+                float q0con[4] = {*qconjugate(q0)};
         		double qdiff[4] = {*qmultiply(q0con,q)};
 
-                delta_x[0] = {_global_position.lat-(x0[0][_time_step])};
-                delta_x[1] = {_global_position.lon-x0[1][_time_step]};
-                delta_x[2] = {(double)_global_position.alt-x0[2][_time_step]};
+                delta_x[0] = {_local_position.x-(x0[0][_time_step])-_x_init};
+                //warnx("xd = %lf",-(x0[0][_time_step]));
+                delta_x[1] = {_local_position.y-x0[1][_time_step]-_y_init};
+                delta_x[2] = {(double)_local_position.z-x0[2][_time_step]-_z_init};
 
                 //delta_x[3] = {(double)qdiff[0]};
                 delta_x[3] = {(double)qdiff[1]};
                 delta_x[4] = {(double)qdiff[2]};
                 delta_x[5] = {(double)qdiff[3]};
 
-                delta_x[6] = {(double)_global_position.vel_n-x0[7][_time_step]};
-                delta_x[7] = {(double)_global_position.vel_e-x0[8][_time_step]};
-                delta_x[8] = {(double)_global_position.vel_d-x0[9][_time_step]};
+                delta_x[6] = {(double)_local_position.vx-x0[7][_time_step]};
+                delta_x[7] = {(double)_local_position.vy-x0[8][_time_step]};
+                delta_x[8] = {(double)_local_position.vz-x0[9][_time_step]};
 
 
                 delta_x[9] = {(double)_attitude.rollspeed-x0[10][_time_step]};
@@ -449,6 +472,7 @@ void TVLQRControl::task_main()
                 u_com[1] = -1*u_com[1] + u0[1][_time_step];
                 u_com[2] = -1*u_com[2] + u0[2][_time_step];
                 u_com[3] = -1*u_com[3] + u0[3][_time_step];
+                //warnx("All the way at 450!");
                 _publish_actuators(u_com);
 
                 //For printing and debugging
@@ -456,6 +480,20 @@ void TVLQRControl::task_main()
                 _u_com2 = u_com[1];
                 _u_com3 = u_com[2];
                 _u_com4 = u_com[3];
+
+                             _x_cur1 = delta_x[0];
+                             _x_cur2 = delta_x[1];
+                             _x_cur3 = delta_x[2];
+                             _x_cur4 = delta_x[3];
+                             _x_cur5 = delta_x[4];
+                             _x_cur6 = delta_x[5];
+                             _x_cur7 = delta_x[6];
+                             _x_cur8 = delta_x[7];
+                             _x_cur9 = delta_x[8];
+                             _x_cur10 = delta_x[9];
+                             _x_cur11 = delta_x[10];
+                             _x_cur12 = delta_x[11];
+
 
              //   double u[4];
 
@@ -472,12 +510,6 @@ void TVLQRControl::task_main()
 
              //matrix multiply
              
-
-
-                while(_attitude.timestamp > t[_time_step + 1])
-                {
-                    ++_time_step;
-                }
 
             //     _vehicle_rates_setpoint.roll = rotate_rate;
             //     _vehicle_rates_setpoint.pitch = 0;
@@ -517,12 +549,14 @@ void TVLQRControl::task_main()
                  /*
                   * go back to disabled state
                   */
+             warnx("I finished a loop");
             //     // enable manual control and attitude control
                  _vehicle_control_mode.flag_control_manual_enabled = true;
                  _vehicle_control_mode.flag_control_attitude_enabled = true;
                  orb_publish(ORB_ID(vehicle_control_mode), _vehicle_control_mode_pub, &_vehicle_control_mode);
             //     // switch back to disabled flip state
                  _tvlqr_state = TVLQR_STATE_DISABLED;
+                 _time_step = 0;
                  break;
              }
             // run at roughly 100 hz
