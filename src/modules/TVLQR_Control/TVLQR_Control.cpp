@@ -338,9 +338,9 @@ void TVLQRControl::task_main()
          * skip loop
          */
         if (pret == 0) {
-            warnx("Im at 339 somehow");
             continue;
         }
+        //warnx("made it past 340");
         /*
          * this means some error happened, I don't know what to do
          * skip loop
@@ -370,9 +370,11 @@ void TVLQRControl::task_main()
    		float q[4] = {*_attitude.q};
 		
         double delta_x[12];
-
+        if(_tvlqr_state != 0){
+        warnx("Current tvlqr state is %d", _tvlqr_state);
+        }
         while ((_tvlqr_state > TVLQR_STATE_DISABLED)){//&&(_vehicle_control_mode.flag_control_flip_enabled)){
-            warnx("376");
+ 
             // update commands
             orb_check(_command_sub, &updated);
             if (updated) {
