@@ -25,7 +25,8 @@
 #include <drivers/drv_pwm_output.h>
 #include <uORB/topics/actuator_direct.h>
 #include <drivers/drv_hrt.h>
-
+#include <uORB/topics/actuator_controls.h>
+#include <uORB/topics/vehicle_rates_setpoint.h>
 
 #define _esc_pwm_min 400
 #define _esc_pwm_max 2100
@@ -120,6 +121,10 @@ private:
     struct vehicle_attitude_s         _attitude;                /**< vehicle attitude */
     struct vehicle_local_position_s    _local_position;
     struct vehicle_rates_setpoint_s _vehicle_rates_setpoint;            /**< vehicle rate setpoint */
+    struct actuator_controls_s actuators;
+    struct vehicle_rates_setpoint_s rates_sp;
+     orb_advert_t actuator_pub;
+
     /**
      * Shim for calling task_main from task_create
      */
@@ -171,6 +176,10 @@ TVLQRControl::TVLQRControl() :
     memset(&_attitude, 0, sizeof(_attitude));
     memset(&_local_position, 0, sizeof(_local_position));
     memset(&_vehicle_rates_setpoint, 0, sizeof(_vehicle_rates_setpoint));
+    memset(&actuators, 0, sizeof(actuators));
+    memset(&rates_sp, 0, sizeof(rates_sp));
+
+
 }
 TVLQRControl::~TVLQRControl()
 {
@@ -195,7 +204,7 @@ void TVLQRControl::handle_command(struct vehicle_command_s *cmd)
          _tvlqr_state = TVLQR_STATE_START;
          break;
      case vehicle_command_s::VEHICLE_CMD_TVLQR_TERMINATE:
-         warnx("TVLQR terminated");
+         //warnx("TVLQR terminated");
          _tvlqr_state = TVLQR_STATE_FINISHED;
          break;
      }
@@ -226,9 +235,11 @@ void TVLQRControl::_publish_actuators(double u_com[4])
 {
         //Temp ZZ
       //  uint8_t _period[4] = {0,0,0,0};
-        void* _actuator_direct_pub = nullptr;
+	 // warnx("here6");
 
-        struct actuator_direct_s actuators;
+        //void* _actuator_direct_pub = nullptr;
+
+        //struct actuator_direct_s actuators;
  
     if (_esc_pwm_min == 0 ||
         _esc_pwm_max == 0) {
@@ -236,34 +247,63 @@ void TVLQRControl::_publish_actuators(double u_com[4])
         return;
     }
  
-        actuators.nvalues = _max_channel;
-    if (actuators.nvalues > actuators.NUM_ACTUATORS_DIRECT) {
-        actuators.nvalues = actuators.NUM_ACTUATORS_DIRECT;
-    }
-    // don't publish more than 8 actuators for now, as the uavcan ESC
-    // driver refuses to update any motors if you try to publish more
-    // than 8
-    if (actuators.nvalues > 8) {
-        actuators.nvalues = 8;
-    }
+    //     actuators.nvalues = _max_channel;
+    // if (actuators.nvalues > actuators.NUM_ACTUATORS_DIRECT) {
+    //     actuators.nvalues = actuators.NUM_ACTUATORS_DIRECT;
+    // }
+    // // don't publish more than 8 actuators for now, as the uavcan ESC
+    // // driver refuses to update any motors if you try to publish more
+    // // than 8
+    // if (actuators.nvalues > 8) {
+    //     actuators.nvalues = 8;
+    // }
    // bool armed = hal.util->get_soft_armed();
-        actuators.timestamp = hrt_absolute_time();
-    for (uint8_t i=0; i<actuators.nvalues; i++) {
+  
+        //actuators->timestamp = hrt_absolute_time();
+         
+    for (int i=0; i<actuator_controls_s::NUM_ACTUATOR_CONTROLS; i++) {
        // if (!armed) {
          //   actuators.values[i] = 0;
         //} else {
-           actuators.values[i] = u_com[i];
+	//warnx("here8 %lf",  u_com[i]*2-1);
+
+
+
+    	/* From actuator_controls.msg
+    	uint8 INDEX_ROLL = 0
+		uint8 INDEX_PITCH = 1
+		uint8 INDEX_YAW = 2
+		uint8 INDEX_THROTTLE = 3
+		*/
+	 warnx("i: %d values: %.4f", i ,(double)u_com[i]*2-1);
+	 		if(i == 0)
+           		actuators.control[3]  = (float) u_com[0]*2-1;
+           	else if(i == 1)
+           		actuators.control[0]  = (float) u_com[1]*2-1;
+           	else if(i == 2)
+           		actuators.control[1]  = (float) u_com[2]*2-1;
+			else if(i == 3)
+           		actuators.control[2]  = (float) u_com[3]*2-1;
+           	else
+           		actuators.control[i]  = (float) u_com[i]*2-1;
+
+
         //actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
         //}
         // actuator values are from -1 to 1
-        actuators.values[i] = actuators.values[i]*2 - 1;
+        //actuators.values[i] = actuators.values[i]*2 - 1;
     }
+    //warnx("here9");
+   
  
-    if (_actuator_direct_pub == nullptr) {
-        _actuator_direct_pub = orb_advertise(ORB_ID(actuator_direct), &actuators);
-    } else {
-        orb_publish(ORB_ID(actuator_direct), _actuator_direct_pub, &actuators);
-    }
+    //if (_actuator_direct_pub == nullptr) {
+     //   _actuator_direct_pub = orb_advertise(ORB_ID(actuator_direct), &actuators);
+    //} else {
+    	//orb_advert_t actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
+        orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+      //  warnx("here8");
+//orb_publish(ORB_ID(actuator_direct), _actuator_direct_pub, &actuators);
+   // }
 }
  
 
@@ -336,6 +376,15 @@ void TVLQRControl::task_main()
     //fds[0].events = POLLIN;
     fds[0].fd = _vehicle_attitude_sub;
     fds[0].events = POLLIN;
+    actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
+    orb_advert_t rates_pub = orb_advertise(ORB_ID(vehicle_rates_setpoint), &rates_sp);
+
+    for (unsigned i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROLS; i++) {
+		actuators.control[i] = 0.0f;
+	}	
+
+   // 	orb_advert_t actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
+
     /* start main slow loop */
     while (!_task_should_exit) {
         /* set the poll target, number of file descriptor, and poll interval */
@@ -367,6 +416,7 @@ void TVLQRControl::task_main()
             orb_copy(ORB_ID(vehicle_command), _command_sub, &_command);
             handle_command(&_command);
         }
+        
         /*
          * check for updates in other topics
          */
@@ -380,7 +430,7 @@ void TVLQRControl::task_main()
         _t_init = _attitude.timestamp;
         _x_init = _local_position.x+6;
         _y_init = _local_position.y;
-        _z_init = _local_position.z+1.5;
+        _z_init = (double)_local_position.z+1.5;
 
         }
         while ((_tvlqr_state > TVLQR_STATE_DISABLED)){//&&(_vehicle_control_mode.flag_control_flip_enabled)){
@@ -409,9 +459,14 @@ void TVLQRControl::task_main()
             }
             // update vehicle attitude
             orb_check(_vehicle_attitude_sub, &updated);
+
+            orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+
             if (updated) {
                 orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &_attitude);
             }
+              //      warnx("here5");
+
             // decide what to do based on current flip_state
              switch (_tvlqr_state) {
              case TVLQR_STATE_DISABLED:
@@ -442,9 +497,9 @@ void TVLQRControl::task_main()
                 float q0con[4] = {*qconjugate(q0)};
         		double qdiff[4] = {*qmultiply(q0con,q)};
 
-                delta_x[0] = {_local_position.x-(x0[0][_time_step])-_x_init};
+                delta_x[0] = {(double)_local_position.x-(x0[0][_time_step])-_x_init};
                 //warnx("xd = %lf",-(x0[0][_time_step]));
-                delta_x[1] = {_local_position.y-x0[1][_time_step]-_y_init};
+                delta_x[1] = {(double)_local_position.y-x0[1][_time_step]-_y_init};
                 delta_x[2] = {(double)_local_position.z-x0[2][_time_step]-_z_init};
 
                 //delta_x[3] = {(double)qdiff[0]};
@@ -472,6 +527,8 @@ void TVLQRControl::task_main()
                 u_com[1] = -1*u_com[1] + u0[1][_time_step];
                 u_com[2] = -1*u_com[2] + u0[2][_time_step];
                 u_com[3] = -1*u_com[3] + u0[3][_time_step];
+                        
+
                 //warnx("All the way at 450!");
                 _publish_actuators(u_com);
 
@@ -549,7 +606,7 @@ void TVLQRControl::task_main()
                  /*
                   * go back to disabled state
                   */
-             warnx("I finished a loop");
+            // warnx("I finished a loop");
             //     // enable manual control and attitude control
                  _vehicle_control_mode.flag_control_manual_enabled = true;
                  _vehicle_control_mode.flag_control_attitude_enabled = true;
