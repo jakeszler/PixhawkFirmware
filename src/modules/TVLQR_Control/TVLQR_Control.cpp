@@ -26,8 +26,13 @@
 #include <uORB/topics/actuator_direct.h>
 #include <drivers/drv_hrt.h>
 #include <uORB/topics/actuator_controls.h>
-#include <uORB/topics/vehicle_rates_setpoint.h>
+//#include <uORB/topics/vehicle_rates_setpoint.h>
+//#include <controllib/blocks.hpp>
+//#include <controllib/block/blocks.hpp>
+//#include <controllib/uorb/blocks.hpp>
 
+//using control::BlockPI;
+//using control::BlockP;
 #define _esc_pwm_min 400
 #define _esc_pwm_max 2100
 #define _max_channel 8
@@ -59,7 +64,7 @@ public:
     float* qconjugate(float*);
     float* qmultiply(float q1[], float q2[]);
     double* K_deltax(double dx[], double Ki[]);
-    void _publish_actuators(double u_com[]);
+    void _publish_actuators(double u_com[], const struct vehicle_attitude_s *att, struct actuator_controls_s *actuators);
 
     /**
      * This function handles the Mavlink command long messages
@@ -72,6 +77,10 @@ public:
     void print_state();
 
     void print_data();
+
+
+void control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att, struct actuator_controls_s *actuators, double u_com[]);
+
     /**
      * check for changes in vehicle control mode
      */
@@ -118,10 +127,11 @@ private:
     orb_advert_t     _vehicle_rates_setpoint_pub;
     struct vehicle_command_s         _command;                /**< vehicle commands */
     struct vehicle_control_mode_s     _vehicle_control_mode;     /**< vehicle control mode */
-    struct vehicle_attitude_s         _attitude;                /**< vehicle attitude */
+    //struct vehicle_attitude_s         _attitude;                /**< vehicle attitude */
     struct vehicle_local_position_s    _local_position;
     struct vehicle_rates_setpoint_s _vehicle_rates_setpoint;            /**< vehicle rate setpoint */
-    struct actuator_controls_s actuators;
+
+//struct vehicle_attitude_setpoint_s _att_sp;
     struct vehicle_rates_setpoint_s rates_sp;
      orb_advert_t actuator_pub;
 
@@ -173,10 +183,10 @@ TVLQRControl::TVLQRControl() :
 {
     memset(&_command, 0, sizeof(_command));
     memset(&_vehicle_control_mode, 0, sizeof(_vehicle_control_mode));
-    memset(&_attitude, 0, sizeof(_attitude));
+   // memset(&_attitude, 0, sizeof(_attitude));
     memset(&_local_position, 0, sizeof(_local_position));
     memset(&_vehicle_rates_setpoint, 0, sizeof(_vehicle_rates_setpoint));
-    memset(&actuators, 0, sizeof(actuators));
+    //memset(&actuators, 0, sizeof(actuators));
     memset(&rates_sp, 0, sizeof(rates_sp));
 
 
@@ -231,7 +241,65 @@ return q;
 }
 
 
-void TVLQRControl::_publish_actuators(double u_com[4])
+void TVLQRControl::control_attitude(const struct vehicle_attitude_setpoint_s *att_sp, const struct vehicle_attitude_s *att,struct actuator_controls_s *actuators, double u_com[])
+{
+	/*
+	 * The PX4 architecture provides a mixer outside of the controller.
+	 * The mixer is fed with a default vector of actuator controls, representing
+	 * moments applied to the vehicle frame. This vector
+	 * is structured as:
+	 *
+	 * Control Group 0 (attitude):
+	 *
+	 *    0  -  roll   (-1..+1)
+	 *    1  -  pitch  (-1..+1)
+	 *    2  -  yaw    (-1..+1)
+	 *    3  -  thrust ( 0..+1)
+	 *    4  -  flaps  (-1..+1)
+	 *    ...
+	 *
+	 * Control Group 1 (payloads / special):
+	 *
+	 *    ...
+	 */
+
+	/* set r/p zero */
+	// actuators->control[0] = 0.0f;
+	// actuators->control[1] = 0.0f;
+
+	// /*
+	//  * Calculate yaw error and apply P gain
+	//  */
+	// //float yaw_err = matrix::Eulerf(matrix::Quatf(att->q)).psi() - matrix::Eulerf(matrix::Quatf(att_sp->q_d)).psi();
+	// actuators->control[2] = 0.0f;
+
+	// /* copy throttle */
+	// actuators->control[3] = att_sp->thrust;
+
+	 actuators->timestamp = hrt_absolute_time();
+
+
+	 for (int i=0; i<actuator_controls_s::NUM_ACTUATOR_CONTROLS; i++) {
+			if(i == 0)
+	         		actuators->control[3]  = (float) u_com[0]*2-1;
+         	else if(i == 1)
+	         		actuators->control[0]  = (float) u_com[1]*2-1;
+         	else if(i == 2)
+	         		actuators->control[1]  = (float) u_com[2]*2-1;
+			else if(i == 3)
+	         		actuators->control[2]  = (float) u_com[3]*2-1;
+         	else
+	         		actuators->control[i]  = (float) u_com[i]*2-1;
+
+
+        //actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
+        }
+        // actuator values are from -1 to 1
+        //actuators.values[i] = actuators.values[i]*2 - 1;
+    							//}
+}
+
+void TVLQRControl::_publish_actuators(double u_com[4],  const struct vehicle_attitude_s *att, struct actuator_controls_s *actuators)
 {
         //Temp ZZ
       //  uint8_t _period[4] = {0,0,0,0};
@@ -240,12 +308,11 @@ void TVLQRControl::_publish_actuators(double u_com[4])
         //void* _actuator_direct_pub = nullptr;
 
         //struct actuator_direct_s actuators;
- 
-    if (_esc_pwm_min == 0 ||
-        _esc_pwm_max == 0) {
-        // not initialised yet
-        return;
-    }
+											    // if (_esc_pwm_min == 0 ||
+											    //     _esc_pwm_max == 0) {
+											    //     // not initialised yet
+											    //     return;
+											    // }
  
     //     actuators.nvalues = _max_channel;
     // if (actuators.nvalues > actuators.NUM_ACTUATORS_DIRECT) {
@@ -261,7 +328,7 @@ void TVLQRControl::_publish_actuators(double u_com[4])
   
         //actuators->timestamp = hrt_absolute_time();
          
-    for (int i=0; i<actuator_controls_s::NUM_ACTUATOR_CONTROLS; i++) {
+  							//  for (int i=0; i<actuator_controls_s::NUM_ACTUATOR_CONTROLS; i++) {
        // if (!armed) {
          //   actuators.values[i] = 0;
         //} else {
@@ -275,32 +342,35 @@ void TVLQRControl::_publish_actuators(double u_com[4])
 		uint8 INDEX_YAW = 2
 		uint8 INDEX_THROTTLE = 3
 		*/
-	 warnx("i: %d values: %.4f", i ,(double)u_com[i]*2-1);
-	 		if(i == 0)
-           		actuators.control[3]  = (float) u_com[0]*2-1;
-           	else if(i == 1)
-           		actuators.control[0]  = (float) u_com[1]*2-1;
-           	else if(i == 2)
-           		actuators.control[1]  = (float) u_com[2]*2-1;
-			else if(i == 3)
-           		actuators.control[2]  = (float) u_com[3]*2-1;
-           	else
-           		actuators.control[i]  = (float) u_com[i]*2-1;
+
+
+									 // warnx("i: %d values: %.4f", i ,(double)u_com[i]*2-1);
+									 // 		if(i == 0)
+								  //          		actuators.control[3]  = (float) u_com[0]*2-1;
+								  //          	else if(i == 1)
+								  //          		actuators.control[0]  = (float) u_com[1]*2-1;
+								  //          	else if(i == 2)
+								  //          		actuators.control[1]  = (float) u_com[2]*2-1;
+										// 	else if(i == 3)
+								  //          		actuators.control[2]  = (float) u_com[3]*2-1;
+								  //          	else
+								  //          		actuators.control[i]  = (float) u_com[i]*2-1;
 
 
         //actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
         //}
         // actuator values are from -1 to 1
         //actuators.values[i] = actuators.values[i]*2 - 1;
-    }
+    							//}
     //warnx("here9");
    
- 
+// actuators.timestamp = hrt_absolute_time();
     //if (_actuator_direct_pub == nullptr) {
      //   _actuator_direct_pub = orb_advertise(ORB_ID(actuator_direct), &actuators);
     //} else {
     	//orb_advert_t actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
-        orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+       // orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+ 	      // updatePublications();
       //  warnx("here8");
 //orb_publish(ORB_ID(actuator_direct), _actuator_direct_pub, &actuators);
    // }
@@ -340,6 +410,7 @@ void TVLQRControl::task_main()
 {
     /* make sure slip_state is disabled at initialization */
     _tvlqr_state = TVLQR_STATE_DISABLED;
+    //	memset(&actuators, 0, sizeof(actuators));
     // inner loop sleep time
     const unsigned sleeptime_us = 50000;
     // first phase roll or pitch target
@@ -374,6 +445,14 @@ void TVLQRControl::task_main()
      */
     //fds[0].fd = _command_sub;
     //fds[0].events = POLLIN;
+
+	struct vehicle_attitude_setpoint_s _att_sp = {};
+struct actuator_controls_s actuators;
+memset(&actuators, 0, sizeof(actuators));
+struct vehicle_attitude_s att;
+memset(&att, 0, sizeof(att));
+
+
     fds[0].fd = _vehicle_attitude_sub;
     fds[0].events = POLLIN;
     actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
@@ -387,6 +466,7 @@ void TVLQRControl::task_main()
 
     /* start main slow loop */
     while (!_task_should_exit) {
+
         /* set the poll target, number of file descriptor, and poll interval */
         int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), poll_interval);
         /*
@@ -396,6 +476,7 @@ void TVLQRControl::task_main()
         if (pret == 0) {
             continue;
         }
+
         //warnx("made it past 340");
         /*
          * this means some error happened, I don't know what to do
@@ -427,7 +508,7 @@ void TVLQRControl::task_main()
 
         if(_tvlqr_state == 1){
         warnx("Current tvlqr state is %d", _tvlqr_state);
-        _t_init = _attitude.timestamp;
+        _t_init = hrt_absolute_time(); // _att.timestamp;
         _x_init = _local_position.x+6;
         _y_init = _local_position.y;
         _z_init = (double)_local_position.z+1.5;
@@ -435,6 +516,7 @@ void TVLQRControl::task_main()
         }
         while ((_tvlqr_state > TVLQR_STATE_DISABLED)){//&&(_vehicle_control_mode.flag_control_flip_enabled)){
             // update commands
+
             orb_check(_command_sub, &updated);
             if (updated) {
                 orb_copy(ORB_ID(vehicle_command), _command_sub, &_command);
@@ -463,7 +545,7 @@ void TVLQRControl::task_main()
             orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
 
             if (updated) {
-                orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &_attitude);
+                orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &att)	;
             }
               //      warnx("here5");
 
@@ -473,21 +555,23 @@ void TVLQRControl::task_main()
             //     // shoudn't even enter this but just in case
             //     // do nothing
              warnx("disabled");
+            // warnx("%lf", ((double)actuators.control[0]));
                  break;
              case TVLQR_STATE_START:
              {
                 /*
                  * 400 degree/second roll to 45 degrees
             //      */
-                float q[4] = {*_attitude.q};
-        
+                float q[4] = {*att.q};
+                warnx("%lf", ((double)actuators.control[0]));
+        		 warnx("runnn");
                 double delta_x[12];
                 //warnx("attitude timestamp = %d \n t_init %d \n T_end %lf",_attitude.timestamp-_t_init,_t_init,t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6));
-                if(_attitude.timestamp-_t_init >= t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6)){
+                if(att.timestamp-_t_init >= t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6)){
                      _tvlqr_state = TVLQR_STATE_FINISHED;
                      break;
                 }
-                while((_attitude.timestamp-_t_init > t[_time_step + 1]*pow(10,6))&&(_attitude.timestamp-_t_init < t[_time_step + 2]*pow(10,6)))
+                while((att.timestamp-_t_init > t[_time_step + 1]*pow(10,6))&&(att.timestamp-_t_init < t[_time_step + 2]*pow(10,6)))
                 {
                     ++_time_step;
                 //warnx("Timestep %d",_time_step);
@@ -512,9 +596,9 @@ void TVLQRControl::task_main()
                 delta_x[8] = {(double)_local_position.vz-x0[9][_time_step]};
 
 
-                delta_x[9] = {(double)_attitude.rollspeed-x0[10][_time_step]};
-                delta_x[10] = {(double)_attitude.pitchspeed-x0[11][_time_step]};
-                delta_x[11] = {(double)_attitude.yawspeed-x0[12][_time_step]};
+                delta_x[9] = {(double)att.rollspeed-x0[10][_time_step]};
+                delta_x[10] = {(double)att.pitchspeed-x0[11][_time_step]};
+                delta_x[11] = {(double)att.yawspeed-x0[12][_time_step]};
 
                 double Ki[48];
                 for(uint8_t i = 0; i < 48; ++i)
@@ -529,8 +613,9 @@ void TVLQRControl::task_main()
                 u_com[3] = -1*u_com[3] + u0[3][_time_step];
                         
 
-                //warnx("All the way at 450!");
-                _publish_actuators(u_com);
+                //PX4_INFO("All the way at 530!");
+              //  _publish_actuators(u_com);
+                 	control_attitude(&_att_sp, &att, &actuators,  u_com);
 
                 //For printing and debugging
                 _u_com1 = u_com[0];
