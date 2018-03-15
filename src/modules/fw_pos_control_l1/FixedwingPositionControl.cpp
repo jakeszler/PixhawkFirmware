@@ -606,6 +606,9 @@ FixedwingPositionControl::do_takeoff_help(float *hold_altitude, float *pitch_lim
 	}
 }
 
+
+
+
 bool
 FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, const math::Vector<2> &ground_speed,
 		const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
@@ -773,36 +776,52 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
 
-
-			if (_parameters.tvlqr == 2){
-
-
+			// int flag = 0;
+			// if (_parameters.tvlqr == 2){
 
 
-					// warnx("before: %f ", static_cast<double>(actuators.control[2]));
-	    //        		actuators.control[3]  = (float) 0.2;
-	    //        		actuators.control[0]  = (float) 0.0	;
-	    //        		actuators.control[1]  = (float) 0.5;
-	    //        		actuators.control[2]  += (float) 0.1;
-	    //        		warnx("after: %f ", static_cast<double>(actuators.control[2]));
-					//  actuator_pub = orb_advertise(ORB_IDc_VEHICLE_ATTITUDE_CONTROLS, &actuators);
+
+
+			// 		// warnx("before: %f ", static_cast<double>(actuators.control[2]));
+	  //   //        		actuators.control[3]  = (float) 0.2;
+	  //   //        		actuators.control[0]  = (float) 0.0	;
+	  //   //        		actuators.control[1]  = (float) 0.5;
+	  //   //        		actuators.control[2]  += (float) 0.1;
+	  //   //        		warnx("after: %f ", static_cast<double>(actuators.control[2]));
+			// 		//  actuator_pub = orb_advertise(ORB_IDc_VEHICLE_ATTITUDE_CONTROLS, &actuators);
        			    
-       			    _att_sp.roll_reset_integral = true;
-					_att_sp.pitch_reset_integral = true;
-					_att_sp.yaw_reset_integral = true;
+   //     			    _att_sp.roll_reset_integral = true;
+			// 		_att_sp.pitch_reset_integral = true;
+			// 		_att_sp.yaw_reset_integral = true;
 
 
-				 _att_sp.roll_body = (float)50;
-				_att_sp.pitch_body = (float)50;
-				 _att_sp.yaw_body = (float)0;
-				 _att_sp.thrust = 0.0f;
-				 warnx("thrust %f ", static_cast<double>(_att_sp.thrust));
+			// 	 _att_sp.roll_body = (float)50;
+			// 	_att_sp.pitch_body = (float)50;
+			// 	 //_att_sp.yaw_body = (float)0;
+ 		// 		_att_sp.thrust = 0.0f;
+			// 	 if(_att_sp.yaw_body >= _parameters.man_roll_max_rad){
+			// 		_att_sp.yaw_body -= (float)0.01;
+			// }
+			// 	else if(_att_sp.yaw_body <= -_parameters.man_roll_max_rad){
+			// 		_att_sp.yaw_body  += (float)0.01;
+			// 	}
+			// 	else{
+			// 		if(flag ==0){
+			// 		 flag = 1;
+			// 		_att_sp.yaw_body += (float)0.01;
+			// 		}
+			// 	}
+
+
+
+
+			// 	 warnx("thrust %f ", static_cast<double>(_att_sp.thrust));
 
 				 
 				
-			}
+			// }
 
-			else{
+			//else{
 
 
 			warnx("circling");
@@ -839,7 +858,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 						   _parameters.throttle_cruise,
 						   false,
 						   radians(_parameters.pitch_limit_min));
-		}
+		
 
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
 
@@ -1446,17 +1465,17 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 	} else {
 		/* Copy thrust and pitch values from tecs */
 		if (_vehicle_land_detected.landed) {
-			if (_parameters.tvlqr != 2){	
-			warnx("here3");
+			//if (_parameters.tvlqr != 2){	
+			//warnx("here3");
 			// when we are landed state we want the motor to spin at idle speed
 			_att_sp.thrust = min(_parameters.throttle_idle, throttle_max);
-			}
+			//}
 
 		} else {
-			warnx("here4");
-			if (_parameters.tvlqr != 2){		
+			//warnx("here4");
+			//if (_parameters.tvlqr != 2){		
 			_att_sp.thrust = min(get_tecs_thrust(), throttle_max);
-			}
+			//}
 		}
 	}
 
@@ -1652,7 +1671,7 @@ FixedwingPositionControl::task_main()
 				_att_sp.timestamp = hrt_absolute_time();
 
 				// add attitude setpoint offsets
-				warnx("_parameters.rollsp_offset_rad;: %f ", static_cast<double>(_parameters.rollsp_offset_rad));
+				//warnx("_parameters.man_roll_max_rad;: %f ", static_cast<double>(_parameters.man_roll_max_rad));
 
 				_att_sp.roll_body += _parameters.rollsp_offset_rad;
 				_att_sp.pitch_body += _parameters.pitchsp_offset_rad;
