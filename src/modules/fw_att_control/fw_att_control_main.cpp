@@ -1139,7 +1139,7 @@ FixedwingAttitudeControl::task_main()
 		                double Ki[48];
 		                for(uint8_t i = 0; i < 48; ++i)
 		                {
-		                    Ki[i] = K[i][_time_step];
+		                   Ki[i] = K[i][_time_step];
 		                }
 		                //u = -K*deltax+u0
 		                double u_com_temp[4] = {*K_deltax(delta_x,  Ki)};

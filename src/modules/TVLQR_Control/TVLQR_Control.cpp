@@ -131,9 +131,11 @@ private:
     struct vehicle_local_position_s    _local_position;
     struct vehicle_rates_setpoint_s _vehicle_rates_setpoint;            /**< vehicle rate setpoint */
 
-//struct vehicle_attitude_setpoint_s _att_sp;
-    struct vehicle_rates_setpoint_s rates_sp;
+    struct vehicle_attitude_setpoint_s _att_sp {};
+    struct vehicle_rates_setpoint_s rates_sp {};
      orb_advert_t actuator_pub;
+	orb_advert_t	_attitude_sp_pub{nullptr}; 
+	orb_id_t _attitude_setpoint_id{nullptr};
 
     /**
      * Shim for calling task_main from task_create
@@ -276,24 +278,89 @@ void TVLQRControl::control_attitude(const struct vehicle_attitude_setpoint_s *at
 	// /* copy throttle */
 	// actuators->control[3] = att_sp->thrust;
 
-	 actuators->timestamp = hrt_absolute_time();
 
-
+     warnx("before: %f ", static_cast<double>(actuators->control[3]));
+     warnx("shouldbe: %.6f ", ( u_com[0]));  //*2-1
 	 for (int i=0; i<actuator_controls_s::NUM_ACTUATOR_CONTROLS; i++) {
-			if(i == 0)
-	         		actuators->control[3]  = (float) u_com[0]*2-1;
-         	else if(i == 1)
-	         		actuators->control[0]  = (float) u_com[1]*2-1;
-         	else if(i == 2)
-	         		actuators->control[1]  = (float) u_com[2]*2-1;
-			else if(i == 3)
-	         		actuators->control[2]  = (float) u_com[3]*2-1;
-         	else
-	         		actuators->control[i]  = (float) u_com[i]*2-1;
+	 	_att_sp.timestamp = hrt_absolute_time();
+	 		_attitude_setpoint_id = ORB_ID(vehicle_attitude_setpoint);
+
+	 		if (_attitude_sp_pub != nullptr) {
+						/* publish the attitude setpoint */
+						orb_publish(_attitude_setpoint_id, _attitude_sp_pub, &_att_sp);
+
+					} else if (_attitude_setpoint_id != nullptr) {
+						/* advertise and publish */
+						_attitude_sp_pub = orb_advertise(_attitude_setpoint_id, &_att_sp);
+}
+
+			if(i == 0){
+					// if(1 >= u_com[0] && u_com[0] >= -1)
+	    //      			actuators->control[3]  = (float) u_com[0];
+	    //      		else if (1 < u_com[0])
+	    //      			actuators->control[3] = 1.0;
+	    //      		else if (u_com[0] < -1)
+	    //      			actuators->control[3] = -1.0;
+				_att_sp.roll_body += (float)0.01;//_parameters.rollsp_offset_rad;
+				_att_sp.pitch_body += (float)0.01;//_parameters.pitchsp_offset_rad;
+				_att_sp.yaw_body += (float)0.01;
+				_att_sp.thrust += (float)0.01;
+				_attitude_sp_pub = orb_advertise(_attitude_setpoint_id, &_att_sp);
+				//actuators->control[3] =actuators->control[3] + (float) 0.01;
+
+	         	}
+         	else if(i == 1){
+					// if(1 >= u_com[1] && u_com[1] >= -1)
+	    //      			actuators->control[0]  = (float) u_com[1];
+	    //      		else if (1 < u_com[1])
+	    //      			actuators->control[0] = 1.0;
+	    //      		else if (u_com[1] < -1)
+	    //      			actuators->control[0] = -1.0;
+         		actuators->control[0] = 0.99;//actuators->control[0] + (float)0.001;
+
+	         		//actuators->control[0]  = (float) u_com[1]; warnx("writing"); 
+	         	}
+         	else if(i == 2){
+         			// if(1 >= u_com[2] && u_com[2] >= -1)
+	         		// 	actuators->control[1]  = (float) u_com[2];
+	         		// else if (1 < u_com[2])
+	         		// 	actuators->control[1] = 1.0;
+	         		// else if (u_com[2] < -1)
+	         		// 	actuators->control[1] = -1.0;
+         			actuators->control[1] =  actuators->control[1] + (float)0.01;
+	         	}
+	         		//actuators->control[1]  = (float) u_com[2];
+			else if(i == 3){
+					// if(1 >= u_com[3] && u_com[3] >= -1)
+	    //      			actuators->control[2]  = (float) u_com[3];
+	    //      		else if (1 < u_com[3])
+	    //      			actuators->control[2] = 1.0;
+	    //      		else if (u_com[3] < -1)
+	    //      			actuators->control[2] = -1.0;
+				         actuators->control[2] = 0.0;
+
+	         	}
+	         		//actuators->control[2]  = (float) u_com[3];
+         	else {
+         		     actuators->control[1] = 0.0;
+
+         		// if(1 >= u_com[i] && u_com[i] >= -1)
+	         	// 		actuators->control[i]  = (float) u_com[i];
+         		// else if (1 < u_com[i])
+	         	// 		actuators->control[i] = 1.0;
+         		// else if (u_com[i] < -1)
+	         	// 		actuators->control[i] = -1.0;
+	         	}
+	         	//	actuators->control[i]  = (float) u_com[i];
 
 
         //actuators.values[i] = (_period[i] - _esc_pwm_min) / (float)(_esc_pwm_max - _esc_pwm_min);
         }
+
+        actuators->timestamp = hrt_absolute_time();
+
+       warnx("isafter:%.6f", static_cast<double>(actuators->control[3]));
+
         // actuator values are from -1 to 1
         //actuators.values[i] = actuators.values[i]*2 - 1;
     							//}
@@ -431,9 +498,9 @@ void TVLQRControl::task_main()
     /* subscribe to the global position topic */
     _vehicle_local_position_sub = orb_subscribe(ORB_ID(vehicle_local_position));
     /* advertise control mode topic */
-    _vehicle_control_mode_pub = orb_advertise(ORB_ID(vehicle_control_mode), &_vehicle_control_mode);
+    //_vehicle_control_mode_pub = orb_advertise(ORB_ID(vehicle_control_mode), &_vehicle_control_mode);
     /* advertise rate setpoint topic */
-    _vehicle_rates_setpoint_pub = orb_advertise(ORB_ID(vehicle_rates_setpoint), &_vehicle_rates_setpoint);
+    //_vehicle_rates_setpoint_pub = orb_advertise(ORB_ID(vehicle_rates_setpoint), &_vehicle_rates_setpoint);
     /*
      * declare file descriptor structure, # in the [] means the
      * # of topics, here is 1 since we are only
@@ -446,7 +513,7 @@ void TVLQRControl::task_main()
     //fds[0].fd = _command_sub;
     //fds[0].events = POLLIN;
 
-	struct vehicle_attitude_setpoint_s _att_sp = {};
+	//struct vehicle_attitude_setpoint_s _att_sp = {};
 struct actuator_controls_s actuators;
 memset(&actuators, 0, sizeof(actuators));
 struct vehicle_attitude_s att;
@@ -455,12 +522,12 @@ memset(&att, 0, sizeof(att));
 
     fds[0].fd = _vehicle_attitude_sub;
     fds[0].events = POLLIN;
-    actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
-    orb_advert_t rates_pub = orb_advertise(ORB_ID(vehicle_rates_setpoint), &rates_sp);
+   // orb_advert_t rates_pub = orb_advertise(ORB_ID(vehicle_rates_setpoint), &rates_sp);
 
     for (unsigned i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROLS; i++) {
 		actuators.control[i] = 0.0f;
 	}	
+    actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
 
    // 	orb_advert_t actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
 
@@ -476,6 +543,11 @@ memset(&att, 0, sizeof(att));
         if (pret == 0) {
             continue;
         }
+
+
+
+
+
 
         //warnx("made it past 340");
         /*
@@ -542,7 +614,7 @@ memset(&att, 0, sizeof(att));
             // update vehicle attitude
             orb_check(_vehicle_attitude_sub, &updated);
 
-            orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+           // orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
 
             if (updated) {
                 orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &att)	;
@@ -616,6 +688,19 @@ memset(&att, 0, sizeof(att));
                 //PX4_INFO("All the way at 530!");
               //  _publish_actuators(u_com);
                  	control_attitude(&_att_sp, &att, &actuators,  u_com);
+                 	orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+
+
+
+                 	if (PX4_ISFINITE(actuators.control[0]) &&
+				    PX4_ISFINITE(actuators.control[1]) &&
+				    PX4_ISFINITE(actuators.control[2]) &&
+				    PX4_ISFINITE(actuators.control[3])) {
+					orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+						warnx("published");
+					}
+
+
 
                 //For printing and debugging
                 _u_com1 = u_com[0];
@@ -633,7 +718,7 @@ memset(&att, 0, sizeof(att));
                              _x_cur8 = delta_x[7];
                              _x_cur9 = delta_x[8];
                              _x_cur10 = delta_x[9];
-                             _x_cur11 = delta_x[10];
+                             _x_cur11 = delta_x[10];	
                              _x_cur12 = delta_x[11];
 
 
