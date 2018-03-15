@@ -824,7 +824,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 			//else{
 
 
-			warnx("circling");
+			//warnx("circling");
 			/* waypoint is a loiter waypoint */
 			_l1_control.navigate_loiter(curr_wp, curr_pos, pos_sp_curr.loiter_radius,
 						    pos_sp_curr.loiter_direction, nav_speed_2d);
@@ -1146,7 +1146,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 							   tecs_status_s::TECS_MODE_TAKEOFF);
 
 				// assign values
-				warnx("fw1control3");
+				//warnx("fw1control3");
 				_att_sp.roll_body = _runway_takeoff.getRoll(_l1_control.nav_roll());
 				_att_sp.yaw_body = _runway_takeoff.getYaw(_l1_control.nav_bearing());
 				_att_sp.fw_control_yaw = _runway_takeoff.controlYaw();

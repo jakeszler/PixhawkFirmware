@@ -1100,9 +1100,9 @@ FixedwingAttitudeControl::task_main()
 		             	att.timestamp = hrt_absolute_time(); // _att.timestamp;
 		                float q[4] = {*att.q};
 		               // warnx("%lf", ((double)_actuators.control[0]));
-		        		 warnx("runnn");
+		        		// warnx("runnn");
 		                double delta_x[12];
-		                warnx("attitude timestamp = %d \n t_init %d \n T_end %lf",att.timestamp-_t_init,_t_init,t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6));
+		                //warnx("attitude timestamp = %d \n t_init %d \n T_end %lf",att.timestamp-_t_init,_t_init,t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6));
 		                if(att.timestamp-_t_init >= t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6)){
 		                     _tvlqr_state = TVLQR_STATE_FINISHED;
 		                     break;
@@ -1110,7 +1110,7 @@ FixedwingAttitudeControl::task_main()
 		                while((att.timestamp-_t_init > t[_time_step + 1]*pow(10,6))&&(att.timestamp-_t_init < t[_time_step + 2]*pow(10,6)))
 		                {
 		                    ++_time_step;
-		                	warnx("Timestep %d",_time_step);
+		                	//warnx("Timestep %d",_time_step);
 		                }
 
 		         		float q0[4] = {(float) x0[3][_time_step], (float) x0[4][_time_step], (float) x0[5][_time_step],(float) x0[6][_time_step]};
@@ -1149,8 +1149,8 @@ FixedwingAttitudeControl::task_main()
 		                u_com[3] = -1*u_com_temp[3] + u0[3][_time_step];
 		                 
 
-		                warnx("ucom 0: %lf ucom 1: %lf ucom 2: %lf ucom 3: %lf", u_com[0], u_com[1], u_com[2], u_com[3]);
-
+		                //warnx("ucom 0: %lf ucom 1: %lf ucom 2: %lf ucom 3: %lf", u_com[0], u_com[1], u_com[2], u_com[3]);
+		                print_data();
 
 						//_actuators.timestamp = hrt_absolute_time();
 		                //PX4_INFO("All the way at 530!");
@@ -1241,7 +1241,7 @@ FixedwingAttitudeControl::task_main()
 
 				bool nonfinite = !PX4_ISFINITE(_ctrl_state.airspeed);
 
-				warnx("here4, _parameters.tvlqr: %d", _parameters.tvlqr);
+				//warnx("here4, _parameters.tvlqr: %d", _parameters.tvlqr);
 
 				/* if airspeed is non-finite or not valid or if we are asked not to control it, we assume the normal average speed */
 				if (nonfinite || !_ctrl_state.airspeed_valid) {
@@ -1355,7 +1355,7 @@ FixedwingAttitudeControl::task_main()
 				/* Run attitude controllers */
 				if (_vcontrol_mode.flag_control_attitude_enabled) {
 					if (PX4_ISFINITE(roll_sp) && PX4_ISFINITE(pitch_sp)) {
-						warnx("here11");
+						//warnx("here11");
 						_roll_ctrl.control_attitude(control_input);
 						_pitch_ctrl.control_attitude(control_input);
 						_yaw_ctrl.control_attitude(control_input); //runs last, because is depending on output of roll and pitch attitude
@@ -1459,9 +1459,9 @@ FixedwingAttitudeControl::task_main()
 						if(_parameters.tvlqr == 2){
 
 							/* throttle passed through if it is finite and if no engine failure was detected */
-						warnx("actuator_controls_s::INDEX_THROTTLE : %d", actuator_controls_s::INDEX_THROTTLE);
-						_actuators.control[actuator_controls_s::INDEX_THROTTLE] = (float) u_com[3];//0.0f;
-						warnx("_actuators.control[actuator_controls_s::INDEX_THROTTLE] = %lf", (double)_actuators.control[actuator_controls_s::INDEX_THROTTLE]);
+						//warnx("actuator_controls_s::INDEX_THROTTLE : %d", actuator_controls_s::INDEX_THROTTLE);
+						_actuators.control[actuator_controls_s::INDEX_THROTTLE] = (float) u_com[0];//0.0f;
+						//warnx("_actuators.control[actuator_controls_s::INDEX_THROTTLE] = %lf", (double)_actuators.control[actuator_controls_s::INDEX_THROTTLE]);
 
 						}
 						else{
@@ -1470,7 +1470,7 @@ FixedwingAttitudeControl::task_main()
 								  _vehicle_status.engine_failure_cmd)) ?
 								throttle_sp : 0.0f;
 							}
-						warnx("_actuators.control[actuator_controls_s::INDEX_THROTTLE] = %lf", (double)_actuators.control[actuator_controls_s::INDEX_THROTTLE]);
+						//warnx("_actuators.control[actuator_controls_s::INDEX_THROTTLE] = %lf", (double)_actuators.control[actuator_controls_s::INDEX_THROTTLE]);
 						/* scale effort by battery status */
 						if (_parameters.bat_scale_en && _battery_status.scale > 0.0f &&
 						    _actuators.control[actuator_controls_s::INDEX_THROTTLE] > 0.1f) {
@@ -1577,7 +1577,7 @@ FixedwingAttitudeControl::task_main()
 					
 					if(flag ==1)
 					{
-						warnx("here7");
+						//warnx("here7");
 					}
 					orb_publish(_actuators_id, _actuators_0_pub, &_actuators);
 
