@@ -87,6 +87,11 @@
 #include <uORB/uORB.h>
 #include <vtol_att_control/vtol_type.h>
 
+#include <uORB/topics/actuator_direct.h>
+#include <drivers/drv_hrt.h>
+#include <uORB/topics/actuator_controls.h>
+
+
 #define HDG_HOLD_DIST_NEXT 		3000.0f 	// initial distance of waypoint in front of plane in heading hold mode
 #define HDG_HOLD_REACHED_DIST 		1000.0f 	// distance (plane to waypoint in front) at which waypoints are reset in heading hold mode
 #define HDG_HOLD_SET_BACK_DIST 		100.0f 		// distance by which previous waypoint is set behind the plane
@@ -152,6 +157,8 @@ private:
 	orb_advert_t	_attitude_sp_pub{nullptr};		///< attitude setpoint */
 	orb_advert_t	_tecs_status_pub{nullptr};		///< TECS status publication */
 	orb_advert_t	_fw_pos_ctrl_status_pub{nullptr};	///< navigation capabilities publication */
+	orb_advert_t    actuator_pub;
+	struct actuator_controls_s actuators;
 
 	orb_id_t _attitude_setpoint_id{nullptr};
 
@@ -298,6 +305,7 @@ private:
 		int32_t land_use_terrain_estimate;
 		float land_airspeed_scale;
 
+		int32_t tvlqr;
 		int32_t vtol_type;
 	} _parameters{};					///< local copies of interesting parameters */
 
@@ -357,6 +365,10 @@ private:
 		param_t land_airspeed_scale;
 
 		param_t vtol_type;
+
+
+		param_t tvlqr;
+
 	} _parameter_handles {};				///< handles for interesting parameters */
 
 

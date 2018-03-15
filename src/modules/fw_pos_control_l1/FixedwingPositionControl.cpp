@@ -94,6 +94,8 @@ FixedwingPositionControl::FixedwingPositionControl() :
 
 	_parameter_handles.vtol_type = 				param_find("VT_TYPE");
 
+	_parameter_handles.tvlqr = param_find("NAV_FT_FS");
+
 	/* fetch initial parameter values */
 	parameters_update();
 }
@@ -193,6 +195,7 @@ FixedwingPositionControl::parameters_update()
 	param_get(_parameter_handles.land_use_terrain_estimate, &(_parameters.land_use_terrain_estimate));
 	param_get(_parameter_handles.land_airspeed_scale, &(_parameters.land_airspeed_scale));
 	param_get(_parameter_handles.vtol_type, &(_parameters.vtol_type));
+	param_get(_parameter_handles.tvlqr, &(_parameters.tvlqr));
 
 	_l1_control.set_l1_damping(_parameters.l1_damping);
 	_l1_control.set_l1_period(_parameters.l1_period);
@@ -689,6 +692,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 	}
 
 	if (_control_mode.flag_control_auto_enabled && pos_sp_curr.valid) {
+
 		/* AUTONOMOUS FLIGHT */
 
 		_control_mode_current = FW_POSCTRL_MODE_AUTO;
@@ -751,6 +755,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 			_att_sp.pitch_body = 0.0f;
 
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION) {
+			warnx("fw1control1");
 			/* waypoint is a plain navigation waypoint */
 			_l1_control.navigate_waypoints(prev_wp, curr_wp, curr_pos, nav_speed_2d);
 			_att_sp.roll_body = _l1_control.nav_roll();
@@ -768,6 +773,39 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
 
+
+			if (_parameters.tvlqr == 2){
+
+
+
+
+					// warnx("before: %f ", static_cast<double>(actuators.control[2]));
+	    //        		actuators.control[3]  = (float) 0.2;
+	    //        		actuators.control[0]  = (float) 0.0	;
+	    //        		actuators.control[1]  = (float) 0.5;
+	    //        		actuators.control[2]  += (float) 0.1;
+	    //        		warnx("after: %f ", static_cast<double>(actuators.control[2]));
+					//  actuator_pub = orb_advertise(ORB_IDc_VEHICLE_ATTITUDE_CONTROLS, &actuators);
+       			    
+       			    _att_sp.roll_reset_integral = true;
+					_att_sp.pitch_reset_integral = true;
+					_att_sp.yaw_reset_integral = true;
+
+
+				 _att_sp.roll_body = (float)50;
+				_att_sp.pitch_body = (float)50;
+				 _att_sp.yaw_body = (float)0;
+				 _att_sp.thrust = 0.0f;
+				 warnx("thrust %f ", static_cast<double>(_att_sp.thrust));
+
+				 
+				
+			}
+
+			else{
+
+
+			warnx("circling");
 			/* waypoint is a loiter waypoint */
 			_l1_control.navigate_loiter(curr_wp, curr_pos, pos_sp_curr.loiter_radius,
 						    pos_sp_curr.loiter_direction, nav_speed_2d);
@@ -801,6 +839,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 						   _parameters.throttle_cruise,
 						   false,
 						   radians(_parameters.pitch_limit_min));
+		}
 
 		} else if (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
 
@@ -1088,6 +1127,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 							   tecs_status_s::TECS_MODE_TAKEOFF);
 
 				// assign values
+				warnx("fw1control3");
 				_att_sp.roll_body = _runway_takeoff.getRoll(_l1_control.nav_roll());
 				_att_sp.yaw_body = _runway_takeoff.getYaw(_l1_control.nav_bearing());
 				_att_sp.fw_control_yaw = _runway_takeoff.controlYaw();
@@ -1206,6 +1246,8 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 
 	} else if (_control_mode.flag_control_velocity_enabled &&
 		   _control_mode.flag_control_altitude_enabled) {
+
+
 		/* POSITION CONTROL: pitch stick moves altitude setpoint, throttle stick sets airspeed,
 		   heading is set to a distant waypoint */
 
@@ -1383,6 +1425,7 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		/* making sure again that the correct thrust is used,
 		 * without depending on library calls for safety reasons.
 		   the pre-takeoff throttle and the idle throttle normally map to the same parameter. */
+		warnx("here");
 		_att_sp.thrust = _parameters.throttle_idle;
 
 	} else if (_control_mode_current == FW_POSCTRL_MODE_AUTO &&
@@ -1397,16 +1440,23 @@ FixedwingPositionControl::control_position(const math::Vector<2> &curr_pos, cons
 		_att_sp.thrust = 0.0f;
 
 	} else if (_control_mode_current == FW_POSCTRL_MODE_OTHER) {
+		//warnx("here2");
 		_att_sp.thrust = min(_att_sp.thrust, _parameters.throttle_max);
 
 	} else {
 		/* Copy thrust and pitch values from tecs */
 		if (_vehicle_land_detected.landed) {
+			if (_parameters.tvlqr != 2){	
+			warnx("here3");
 			// when we are landed state we want the motor to spin at idle speed
 			_att_sp.thrust = min(_parameters.throttle_idle, throttle_max);
+			}
 
 		} else {
+			warnx("here4");
+			if (_parameters.tvlqr != 2){		
 			_att_sp.thrust = min(get_tecs_thrust(), throttle_max);
+			}
 		}
 	}
 
@@ -1485,6 +1535,12 @@ FixedwingPositionControl::task_main()
 	/*
 	 * do subscriptions
 	 */
+	
+	
+	memset(&actuators, 0, sizeof(actuators));
+	orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
+	 actuator_pub = orb_advertise(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, &actuators);
+
 	_global_pos_sub = orb_subscribe(ORB_ID(vehicle_global_position));
 	_pos_sp_triplet_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
 	_ctrl_state_sub = orb_subscribe(ORB_ID(control_state));
@@ -1596,6 +1652,8 @@ FixedwingPositionControl::task_main()
 				_att_sp.timestamp = hrt_absolute_time();
 
 				// add attitude setpoint offsets
+				warnx("_parameters.rollsp_offset_rad;: %f ", static_cast<double>(_parameters.rollsp_offset_rad));
+
 				_att_sp.roll_body += _parameters.rollsp_offset_rad;
 				_att_sp.pitch_body += _parameters.pitchsp_offset_rad;
 
@@ -1616,11 +1674,17 @@ FixedwingPositionControl::task_main()
 					/* lazily publish the setpoint only once available */
 					if (_attitude_sp_pub != nullptr) {
 						/* publish the attitude setpoint */
+
+					//if (_parameters.tvlqr != 2){
 						orb_publish(_attitude_setpoint_id, _attitude_sp_pub, &_att_sp);
+					//	}
 
 					} else if (_attitude_setpoint_id != nullptr) {
 						/* advertise and publish */
+
+					//if (_parameters.tvlqr != 2){
 						_attitude_sp_pub = orb_advertise(_attitude_setpoint_id, &_att_sp);
+					//	}
 					}
 				}
 
