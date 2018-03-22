@@ -404,8 +404,8 @@ private:
 
 	void 		print_data();
 
-	float* qconjugate(float*);
-    float* qmultiply(float q1[], float q2[]);
+	double* qconjugate(double*);
+    double* qmultiply(double q1[], float q2[]);
     double* K_deltax(double dx[], double Ki[]);
 
 };
@@ -806,22 +806,28 @@ FixedwingAttitudeControl::task_main_trampoline(int argc, char *argv[])
 	att_control::g_control->task_main();
 }
 
-float* FixedwingAttitudeControl::qconjugate(float q[4])
+double* FixedwingAttitudeControl::qconjugate(double q[4])
 {
-q[1] = -q[1];
-q[2] = -q[2];
-q[3] = -q[3];
-return q;
+	static double q_conj[4];
+q_conj[0] = q[0];	
+q_conj[1] = -q[1];
+q_conj[2] = -q[2];
+q_conj[3] = -q[3];
+
+return q_conj;
 }
 
-float* FixedwingAttitudeControl::qmultiply(float q1[4],  float q2[4])
+double* FixedwingAttitudeControl::qmultiply(double q1[4],  float q2[4])
 {
 
- 	static float qresult[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};  
+ 	static double qresult[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};  
  	qresult[0] = q1[0] * q2[0]- q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3];
 	qresult[1] = q1[0] * q2[1] + q1[1] * q2[0] + q1[2] * q2[3] - q1[3] * q2[2];
 	qresult[2] = q1[0] * q2[2] + q1[2] * q2[0] - q1[1] * q2[3] + q1[3] * q2[1];
 	qresult[3] = q1[0] * q2[3] + q1[1]	* q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
+
+	//warnx("q1 is {%lf,%lf,%lf,%lf} q2 is {%lf,%lf,%lf,%lf}",
+    //q1[0],q1[1],q1[2],q1[3],q2[0],q2[1],q2[2],q2[3]);
 
 	return qresult;
 }
@@ -838,7 +844,8 @@ double* FixedwingAttitudeControl::K_deltax(double dx[12],  double Ki[48])
                     dx[8]*Ki[i+32] + dx[9]*Ki[i+36] + dx[10]*Ki[i+40] + dx[11]*Ki[i+44];
 
         }
-
+        //warnx("dx is {%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf}",
+        //dx[0],dx[1],dx[2],dx[3],dx[4],dx[5],dx[6],dx[7],dx[8],dx[9],dx[10],dx[11]);
         return u_com1;
 }
 
@@ -1116,12 +1123,17 @@ FixedwingAttitudeControl::task_main()
 		             break;
 		             case TVLQR_STATE_START:
 		             {
-		             	 flag = 1;
+		             	if(flag == 0){
+		             		_x_init = x0[0][_time_step]+ (double) _local_pos.x;
+		             		_y_init = x0[1][_time_step]+ (double) _local_pos.y;
+		             		_z_init = x0[2][_time_step]+ (double) _local_pos.z;
+		             		flag = 1;
+		             	}
 		                /*
 		                 * 400 degree/second roll to 45 degrees
 		            //      */
 		             	att.timestamp = hrt_absolute_time(); // _att.timestamp;
-		                float q[4] = {*att.q};
+		                float q[4] = {att.q[0],att.q[1],att.q[2],att.q[3]};
 		               // warnx("%lf", ((double)_actuators.control[0]));
 		        		// warnx("runnn");
 		                double delta_x[12];
@@ -1136,14 +1148,22 @@ FixedwingAttitudeControl::task_main()
 		                	//warnx("Timestep %d",_time_step);
 		                }
 
-		         		float q0[4] = {(float) x0[3][_time_step], (float) x0[4][_time_step], (float) x0[5][_time_step],(float) x0[6][_time_step]};
-		                float q0con[4] = {*qconjugate(q0)};
-		        		double qdiff[4] = {*qmultiply(q0con,q)};
+		         		double q0[4] = { x0[3][_time_step], x0[4][_time_step], x0[5][_time_step], x0[6][_time_step]};
+		                double *q0con;
+		                q0con = qconjugate(q0);
+		                //qconjugate(q0);
+		        		double *qdiff; 
+		        		qdiff = qmultiply(q0con,q);
+
+
+
+		        			//warnx("q0con is {%lf,%lf,%lf,%lf} q is {%lf,%lf,%lf,%lf}",
+    						//qdiff[0],qdiff[1],qdiff[2],qdiff[3],q[0],q[1],q[2],q[3]);
 		        	
-		                delta_x[0] = {(double)_local_pos.x-(x0[0][_time_step])-_x_init};
+		                delta_x[0] = {(double)_local_pos.x-(x0[0][_time_step])+_x_init};
 		                //warnx("xd = %lf",-(x0[0][_time_step]));
-		                delta_x[1] = {(double)_local_pos.y-x0[1][_time_step]-_y_init};
-		                delta_x[2] = {(double)_local_pos.z-x0[2][_time_step]-_z_init};
+		                delta_x[1] = {(double)_local_pos.y-x0[1][_time_step]+_y_init};
+		                delta_x[2] = {(double)_local_pos.z-x0[2][_time_step]+_z_init};
 
 		                //delta_x[3] = {(double)qdiff[0]};
 		                delta_x[3] = {(double)qdiff[1]};
@@ -1165,20 +1185,23 @@ FixedwingAttitudeControl::task_main()
 		                   Ki[i] = K[i][_time_step];
 		                }
 		                //u = -K*deltax+u0
-		                double u_com_temp[4] = {*K_deltax(delta_x,  Ki)};
+		                double *u_com_temp;
+		                u_com_temp = K_deltax(delta_x,  Ki);
+
+
 		                u_com[0] = -1*u_com_temp[0] + u0[0][_time_step];
 		                u_com[1] = -1*u_com_temp[1] + u0[1][_time_step];
 		                u_com[2] = -1*u_com_temp[2] + u0[2][_time_step];
 		                u_com[3] = -1*u_com_temp[3] + u0[3][_time_step];
 
-		                u_com[0] = 0;
-		                u_com[1] = 0;
-		                u_com[2] = 0;
-		                u_com[3] = 0;
+		                //u_com[0] = 0;
+		                //u_com[1] = 0;
+		                //u_com[2] = 0;
+		                //u_com[3] = 0;
 		                 
 
 		                //warnx("ucom 0: %lf ucom 1: %lf ucom 2: %lf ucom 3: %lf", u_com[0], u_com[1], u_com[2], u_com[3]);
-		                print_data();
+		                //print_data();
 
 						//_actuators.timestamp = hrt_absolute_time();
 		                //PX4_INFO("All the way at 530!");
@@ -1197,11 +1220,11 @@ FixedwingAttitudeControl::task_main()
 
 
 
-		                //For printing and debugging
-		                _u_com1 = u_com[0];
-		                _u_com2 = u_com[1];
-		                _u_com3 = u_com[2];
-		                _u_com4 = u_com[3];
+					                //For printing and debugging
+					                _u_com1 = u_com[0];
+					                _u_com2 = u_com[1];
+					                _u_com3 = u_com[2];
+					                _u_com4 = u_com[3];
 
 		                             _x_cur1 = delta_x[0];
 		                             _x_cur2 = delta_x[1];
@@ -1216,6 +1239,7 @@ FixedwingAttitudeControl::task_main()
 		                             _x_cur11 = delta_x[10];	
 		                             _x_cur12 = delta_x[11];
 
+		                              //print_data();
 
 		             //   double u[4];
 
