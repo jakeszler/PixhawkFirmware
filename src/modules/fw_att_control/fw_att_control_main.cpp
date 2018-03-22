@@ -123,12 +123,13 @@ private:
 	int		_battery_status_sub;		/**< battery status subscription */
 	int		_ctrl_state_sub;		/**< control state subscription */
 	int		_global_pos_sub;		/**< global position subscription */
+	int     _local_pos_sub;
 	int		_manual_sub;			/**< notification of manual control updates */
 	int		_params_sub;			/**< notification of parameter updates */
 	int		_vcontrol_mode_sub;		/**< vehicle status subscription */
 	int		_vehicle_land_detected_sub;	/**< vehicle land detected subscription */
 	int		_vehicle_status_sub;		/**< vehicle status subscription */
-	int         _vehicle_local_position_sub;
+	
 
 	orb_advert_t	_rate_sp_pub;			/**< rate setpoint publication */
 	orb_advert_t	_attitude_sp_pub;		/**< attitude setpoint point */
@@ -150,6 +151,9 @@ private:
 	struct vehicle_land_detected_s			_vehicle_land_detected;	/**< vehicle land detected */
 	struct vehicle_rates_setpoint_s			_rates_sp;	/* attitude rates setpoint */
 	struct vehicle_status_s				_vehicle_status;	/**< vehicle status */
+	struct vehicle_local_position_s    _local_pos;
+
+
 
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
 	perf_counter_t	_nonfinite_input_perf;		/**< performance counter for non finite input */
@@ -371,6 +375,8 @@ private:
 	 */
 	void		global_pos_poll();
 
+	void		local_pos_poll();
+
 	/**
 	 * Check for vehicle status updates.
 	 */
@@ -420,6 +426,7 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 	_battery_status_sub(-1),
 	_ctrl_state_sub(-1),
 	_global_pos_sub(-1),
+	_local_pos_sub(-1),
 	_manual_sub(-1),
 	_params_sub(-1),
 	_vcontrol_mode_sub(-1),
@@ -461,6 +468,7 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 	_battery_status = {};
 	_ctrl_state = {};
 	_global_pos = {};
+	_local_pos = {};
 	_manual = {};
 	_rates_sp = {};
 	_vcontrol_mode = {};
@@ -731,6 +739,18 @@ FixedwingAttitudeControl::global_pos_poll()
 }
 
 void
+FixedwingAttitudeControl::local_pos_poll()
+{
+	/* check if there is a new global position */
+	bool local_pos_updated;
+	orb_check(_local_pos_sub, &local_pos_updated);
+
+	if (local_pos_updated) {
+		orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
+	}
+}
+
+void
 FixedwingAttitudeControl::vehicle_status_poll()
 {
 	/* check if there is new status information */
@@ -845,6 +865,7 @@ FixedwingAttitudeControl::task_main()
 	_vehicle_land_detected_sub = orb_subscribe(ORB_ID(vehicle_land_detected));
 	_battery_status_sub = orb_subscribe(ORB_ID(battery_status));
     _vehicle_attitude_sub = orb_subscribe(ORB_ID(vehicle_attitude));
+    _local_pos_sub = orb_subscribe(ORB_ID(vehicle_local_position));
 
 	parameters_update();
 
@@ -870,9 +891,9 @@ FixedwingAttitudeControl::task_main()
 	_task_running = true;
 	struct vehicle_attitude_s att;
 	memset(&att, 0, sizeof(att));
-	struct vehicle_local_position_s    _local_position;
+	//struct vehicle_local_position_s    _local_position;
 
-	memset(&_local_position, 0, sizeof(_local_position));
+	//memset(&_local_position, 0, sizeof(_local_position));
 
 	bool updated = false;
 	const unsigned sleeptime_us = 50000;
@@ -988,6 +1009,8 @@ FixedwingAttitudeControl::task_main()
 			vehicle_manual_poll();
 
 			global_pos_poll();
+
+			local_pos_poll();
 
 			vehicle_status_poll();
 
@@ -1116,20 +1139,20 @@ FixedwingAttitudeControl::task_main()
 		         		float q0[4] = {(float) x0[3][_time_step], (float) x0[4][_time_step], (float) x0[5][_time_step],(float) x0[6][_time_step]};
 		                float q0con[4] = {*qconjugate(q0)};
 		        		double qdiff[4] = {*qmultiply(q0con,q)};
-
-		                delta_x[0] = {(double)_local_position.x-(x0[0][_time_step])-_x_init};
+		        	
+		                delta_x[0] = {(double)_local_pos.x-(x0[0][_time_step])-_x_init};
 		                //warnx("xd = %lf",-(x0[0][_time_step]));
-		                delta_x[1] = {(double)_local_position.y-x0[1][_time_step]-_y_init};
-		                delta_x[2] = {(double)_local_position.z-x0[2][_time_step]-_z_init};
+		                delta_x[1] = {(double)_local_pos.y-x0[1][_time_step]-_y_init};
+		                delta_x[2] = {(double)_local_pos.z-x0[2][_time_step]-_z_init};
 
 		                //delta_x[3] = {(double)qdiff[0]};
 		                delta_x[3] = {(double)qdiff[1]};
 		                delta_x[4] = {(double)qdiff[2]};
 		                delta_x[5] = {(double)qdiff[3]};
 
-		                delta_x[6] = {(double)_local_position.vx-x0[7][_time_step]};
-		                delta_x[7] = {(double)_local_position.vy-x0[8][_time_step]};
-		                delta_x[8] = {(double)_local_position.vz-x0[9][_time_step]};
+		                delta_x[6] = {(double)_local_pos.vx-x0[7][_time_step]};
+		                delta_x[7] = {(double)_local_pos.vy-x0[8][_time_step]};
+		                delta_x[8] = {(double)_local_pos.vz-x0[9][_time_step]};
 
 
 		                delta_x[9] = {(double)att.rollspeed-x0[10][_time_step]};
@@ -1147,6 +1170,11 @@ FixedwingAttitudeControl::task_main()
 		                u_com[1] = -1*u_com_temp[1] + u0[1][_time_step];
 		                u_com[2] = -1*u_com_temp[2] + u0[2][_time_step];
 		                u_com[3] = -1*u_com_temp[3] + u0[3][_time_step];
+
+		                u_com[0] = 0;
+		                u_com[1] = 0;
+		                u_com[2] = 0;
+		                u_com[3] = 0;
 		                 
 
 		                //warnx("ucom 0: %lf ucom 1: %lf ucom 2: %lf ucom 3: %lf", u_com[0], u_com[1], u_com[2], u_com[3]);
