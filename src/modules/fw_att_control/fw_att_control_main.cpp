@@ -536,7 +536,7 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 
 	_parameter_handles.bat_scale_en = param_find("FW_BAT_SCALE_EN");
 
-		_parameter_handles.tvlqr = param_find("NAV_FT_FS");
+	_parameter_handles.tvlqr = param_find("NAV_FT_FS");
 
 
 	/* fetch initial parameter values */
@@ -821,10 +821,10 @@ double* FixedwingAttitudeControl::qmultiply(double q1[4],  float q2[4])
 {
 
  	static double qresult[4] = {0,0,0,0}; //= {q1[0]*q2[0]-q1[1]*q2[2]*q1[1]};  
- 	qresult[0] = q1[0] * q2[0]- q1[1] * q2[1] - q1[2] * q2[2] - q1[3] * q2[3];
-	qresult[1] = q1[0] * q2[1] + q1[1] * q2[0] + q1[2] * q2[3] - q1[3] * q2[2];
-	qresult[2] = q1[0] * q2[2] + q1[2] * q2[0] - q1[1] * q2[3] + q1[3] * q2[1];
-	qresult[3] = q1[0] * q2[3] + q1[1]	* q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
+ 	qresult[0] = q1[0] * (double)q2[0]- q1[1] * (double)q2[1] - q1[2] * (double)q2[2] - q1[3] * (double)q2[3];
+	qresult[1] = q1[0] * (double)q2[1] + q1[1] * (double)q2[0] + q1[2] * (double)q2[3] - q1[3] * (double)q2[2];
+	qresult[2] = q1[0] * (double)q2[2] + q1[2] * (double)q2[0] - q1[1] * (double)q2[3] + q1[3] * (double)q2[1];
+	qresult[3] = q1[0] * (double)q2[3] + q1[1]	* (double)q2[2] - q1[2] * (double)q2[1] + q1[3] * (double)q2[0];
 
 	//warnx("q1 is {%lf,%lf,%lf,%lf} q2 is {%lf,%lf,%lf,%lf}",
     //q1[0],q1[1],q1[2],q1[3],q2[0],q2[1],q2[2],q2[3]);
@@ -851,7 +851,7 @@ double* FixedwingAttitudeControl::K_deltax(double dx[12],  double Ki[48])
 
 void FixedwingAttitudeControl::print_data()
 {
-    warnx("Current x is {%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf},\n u_com is {%lf,%lf,%lf,%lf}\n t_init is %d",
+    warnx("Current x is {%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf},\n u_com is {%lf,%lf,%lf,%lf}\n t_init is %lf",
         _x_cur1,_x_cur2,_x_cur3,_x_cur4,_x_cur5,_x_cur6,_x_cur7,_x_cur8,_x_cur9,_x_cur10,_x_cur11,_x_cur12,_x_cur13,
         _u_com1,_u_com2,_u_com3,_u_com4,_t_init);
 }
@@ -1105,26 +1105,29 @@ FixedwingAttitudeControl::task_main()
             if (updated) {
                 orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &att)	;
             }
-
-			if(_vcontrol_mode.flag_control_rates_enabled && _parameters.tvlqr == 2)
+            //warnx("here000");
+            //warnx("%d control ", _vcontrol_mode.flag_control_rates_enabled);
+			if( _parameters.tvlqr == 2) //_vcontrol_mode.flag_control_rates_enabled &&
 			{
 				
 				
-				
+				//warnx("here111");
 				switch (_tvlqr_state) {
 
 		             case TVLQR_STATE_DISABLED:
 		            //     // shoudn't even enter this but just in case
 		            //     // do nothing
-		             _t_init = hrt_absolute_time();
+		            
 		             warnx("disabled");
 		             _tvlqr_state = TVLQR_STATE_START;
 		            // warnx("%lf", ((double)actuators.control[0]));
 		             break;
 		             case TVLQR_STATE_START:
 		             {
+		             	//warnx("here");
 		             	if(flag == 0){
-		             		_x_init = x0[0][_time_step]+ (double) _local_pos.x;
+		             		 _t_init = hrt_absolute_time();
+		             		_x_init = x0[0][_time_step]+ -1*(double) _local_pos.x;
 		             		_y_init = x0[1][_time_step]+ (double) _local_pos.y;
 		             		_z_init = x0[2][_time_step]+ (double) _local_pos.z;
 		             		flag = 1;
@@ -1133,7 +1136,8 @@ FixedwingAttitudeControl::task_main()
 		                 * 400 degree/second roll to 45 degrees
 		            //      */
 		             	att.timestamp = hrt_absolute_time(); // _att.timestamp;
-		                float q[4] = {att.q[0],att.q[1],att.q[2],att.q[3]};
+		             	float q[4] = {-1*att.q[1],att.q[0],-1*.q[3],-1*att.q[2]};
+		                //float q[4] = {att.q[0],att.q[1],att.q[2],att.q[3]};
 		               // warnx("%lf", ((double)_actuators.control[0]));
 		        		// warnx("runnn");
 		                double delta_x[12];
@@ -1162,8 +1166,8 @@ FixedwingAttitudeControl::task_main()
 		        	
 		                delta_x[0] = {(double)_local_pos.x-(x0[0][_time_step])+_x_init};
 		                //warnx("xd = %lf",-(x0[0][_time_step]));
-		                delta_x[1] = {(double)_local_pos.y-x0[1][_time_step]+_y_init};
-		                delta_x[2] = {(double)_local_pos.z-x0[2][_time_step]+_z_init};
+		                delta_x[1] = {-1*(double)_local_pos.y-x0[1][_time_step]+_y_init};
+		                delta_x[2] = {-1*(double)_local_pos.z-x0[2][_time_step]+_z_init};
 
 		                //delta_x[3] = {(double)qdiff[0]};
 		                delta_x[3] = {(double)qdiff[1]};
@@ -1179,29 +1183,29 @@ FixedwingAttitudeControl::task_main()
 		                delta_x[10] = {(double)att.pitchspeed-x0[11][_time_step]};
 		                delta_x[11] = {(double)att.yawspeed-x0[12][_time_step]};
 
-		                double Ki[48];
-		                for(uint8_t i = 0; i < 48; ++i)
-		                {
-		                   Ki[i] = K[i][_time_step];
-		                }
+				                double Ki[48];
+				                for(uint8_t i = 0; i < 48; ++i)
+				                {
+				                   Ki[i] = K[i][_time_step];
+				                }
 		                //u = -K*deltax+u0
-		                double *u_com_temp;
-		                u_com_temp = K_deltax(delta_x,  Ki);
+			                double *u_com_temp;
+			                u_com_temp = K_deltax(delta_x,  Ki);
 
 
-		                u_com[0] = -1*u_com_temp[0] + u0[0][_time_step];
-		                u_com[1] = -1*u_com_temp[1] + u0[1][_time_step];
-		                u_com[2] = -1*u_com_temp[2] + u0[2][_time_step];
-		                u_com[3] = -1*u_com_temp[3] + u0[3][_time_step];
+			                u_com[0] = -1*u_com_temp[0] + u0[0][_time_step];
+			                u_com[1] = -1*u_com_temp[1] + u0[1][_time_step];
+			                u_com[2] = -1*u_com_temp[2] + u0[2][_time_step];
+			                u_com[3] = -1*u_com_temp[3] + u0[3][_time_step];
 
-		                //u_com[0] = 0;
-		                //u_com[1] = 0;
-		                //u_com[2] = 0;
-		                //u_com[3] = 0;
+		                // u_com[0] = 0.1;  // throttle yaw
+		                // u_com[1] = 0.5;  // roll
+		                // u_com[2] = -0.5;  // pitch
+		                // u_com[3] = 0.5; //yaw
 		                 
 
 		                //warnx("ucom 0: %lf ucom 1: %lf ucom 2: %lf ucom 3: %lf", u_com[0], u_com[1], u_com[2], u_com[3]);
-		                //print_data();
+		                print_data();
 
 						//_actuators.timestamp = hrt_absolute_time();
 		                //PX4_INFO("All the way at 530!");
@@ -1280,6 +1284,7 @@ FixedwingAttitudeControl::task_main()
 		            //     // switch back to disabled flip state
 		                 _tvlqr_state = TVLQR_STATE_DISABLED;
 		                 _time_step = 0;
+		                 flag = 0;
 		             break;
 		             }
 		            // run at roughly 100 hz
@@ -1287,10 +1292,10 @@ FixedwingAttitudeControl::task_main()
 
 			}
 			/* decide if in stabilized or full manual control */
-			if (_vcontrol_mode.flag_control_rates_enabled){//} && _parameters.tvlqr != 2) {
+			if (_vcontrol_mode.flag_control_rates_enabled || _parameters.tvlqr != 2) {
 				/* scale around tuning airspeed */
 				float airspeed;
-
+				//	warnx("tvlqr : %d ", _parameters.tvlqr);
 				bool nonfinite = !PX4_ISFINITE(_ctrl_state.airspeed);
 
 				//warnx("here4, _parameters.tvlqr: %d", _parameters.tvlqr);
@@ -1330,7 +1335,7 @@ FixedwingAttitudeControl::task_main()
 				// from manual user inputs
 				if (!_vcontrol_mode.flag_control_climb_rate_enabled && !_vcontrol_mode.flag_control_offboard_enabled && _parameters.tvlqr != 2) {
 
-					warnx("here5");
+					//warnx("here5");
 					_att_sp.roll_body = _manual.y * _parameters.man_roll_max + _parameters.rollsp_offset_rad;
 					_att_sp.roll_body = math::constrain(_att_sp.roll_body, -_parameters.man_roll_max, _parameters.man_roll_max);
 					_att_sp.pitch_body = -_manual.x * _parameters.man_pitch_max + _parameters.pitchsp_offset_rad;
@@ -1405,7 +1410,7 @@ FixedwingAttitudeControl::task_main()
 				_yaw_ctrl.set_coordinated_method(_parameters.y_coordinated_method);
 
 				/* Run attitude controllers */
-				if (_vcontrol_mode.flag_control_attitude_enabled) {
+				if (_vcontrol_mode.flag_control_attitude_enabled || _parameters.tvlqr == 2) {
 					if (PX4_ISFINITE(roll_sp) && PX4_ISFINITE(pitch_sp)) {
 						//warnx("here11");
 						_roll_ctrl.control_attitude(control_input);
@@ -1546,7 +1551,7 @@ FixedwingAttitudeControl::task_main()
 
 				} else {
 					// pure rate control
-					warnx("rate control");
+					//warnx("rate control");
 					_roll_ctrl.set_bodyrate_setpoint(_manual.y * _parameters.acro_max_x_rate_rad);
 					_pitch_ctrl.set_bodyrate_setpoint(-_manual.x * _parameters.acro_max_y_rate_rad);
 					_yaw_ctrl.set_bodyrate_setpoint(_manual.r * _parameters.acro_max_z_rate_rad);
