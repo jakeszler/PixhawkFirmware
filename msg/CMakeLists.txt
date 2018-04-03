@@ -102,6 +102,7 @@ set(msg_file_names
 	tecs_status.msg
 	telemetry_status.msg
 	test_motor.msg
+	testing_data.msg
 	time_offset.msg
 	transponder_report.msg
 	uavcan_parameter_request.msg
