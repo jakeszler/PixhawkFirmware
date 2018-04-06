@@ -1163,15 +1163,15 @@ FixedwingAttitudeControl::task_main()
 		             		 warnx("%lf",_t_init);
 
 		             		 //Get initial heading in XY plane to rotate trajectory accordingly
-		             		 _heading_init = atan2(2*(-1*att.q[1]*att.q[2]-1*att.q[0]*att.q[3]),1-2*(att.q[3]*att.q[3]+att.q[2]*att.q[2])); //Extract 
-		             		//_heading_init = _local_pos.yaw; 
+		             		//_heading_init = atan2(2*(-1*att.q[1]*att.q[2]-1*att.q[0]*att.q[3]),1-2*(att.q[3]*att.q[3]+att.q[2]*att.q[2])); //Extract 
+		             		_heading_init = _local_pos.yaw; 
 		             		_c_head = cos(-1*_heading_init);
 		             		_s_head = sin(-1*_heading_init);
 
 		             		//Initial X,Y,Z position for trajectory start
 		             	    _x_init = (double) _local_pos.x;
-		             		_y_init = (double) _local_pos.y; 
-		             		_z_init =  (double)_local_pos.z;
+		             		_y_init = -1*(double) _local_pos.y; 
+		             		_z_init =  -1*(double)_local_pos.z;
 
 		             		//Quaternion rotation about z-axis by initial heading angle
 		             		_q_rot[0] = cos(-.5*_heading_init);
@@ -1235,7 +1235,8 @@ FixedwingAttitudeControl::task_main()
 		        	    double unit_vecd[2] = {vec_des[0]/norm_vecd,vec_des[1]/norm_vecd};
 		        	    
 		        	    //Vector to the measured local x-y position from the initial position
-		        	    double vec_meas[2] = {-1*_x_init+(double)_local_pos.x,-1*_y_init+(double) _local_pos.y};
+		        	    //double vec_meas[2] = {-1*_x_init+(double)_local_pos.x,-1*_y_init+(double) _local_pos.y};
+		        	    double vec_meas[2] = {-1*_x_init+(double)_local_pos.x,-1*_y_init-(double)_local_pos.y};
 		        	    //double norm_vecm = sqrt(vec_meas[0]*vec_meas[0]+vec_meas[1]*vec_meas[1]);
 		        	    
 		        	    //Project the measured position onto desired position vector for deltax (forward/backward)
@@ -1299,7 +1300,7 @@ FixedwingAttitudeControl::task_main()
 		                //XYZ Position difference
 		                delta_x[0] = del_x;
 		                delta_x[1] = del_y;
-		                delta_x[2] = {-1*((double)_local_pos.z-_z_init)}; //since Z is measured down here
+		                delta_x[2] = {(-1*(double)_local_pos.z-_z_init)}; //since Z is measured down here
 		                
 		                //Orientation Difference
 		                delta_x[3] = {(double)qdiff[1]};
@@ -1319,20 +1320,20 @@ FixedwingAttitudeControl::task_main()
 
 		                //Zero out array components to ignore them in testing
 		                //delta_x[0] = 0;
-		                delta_x[1] = 0;
-		                delta_x[2] = 0;
+		                //delta_x[1] = 0;
+		                //delta_x[2] = 0;
 		                //delta_x[3] = 0;
 		                //delta_x[4] = 0;
 		                //delta_x[5] = 0;
-		               //delta_x[3] = -1*delta_x[3];
+		                //delta_x[3] = -1*delta_x[3];
 		                //delta_x[4] = -1*delta_x[4];;
 		                //delta_x[5] = -1*delta_x[5];;
 		                delta_x[6] = 0;
 		                delta_x[7] = 0;
 		                delta_x[8] = 0;
-		                delta_x[9] = 0;
-		                delta_x[10] = 0;
-		                delta_x[11] = 0;
+		                //delta_x[9] = 0;
+		                //delta_x[10] = 0;
+		                //delta_x[11] = 0;
 
 
 				        double Ki[48];
@@ -1346,10 +1347,10 @@ FixedwingAttitudeControl::task_main()
 				        K_deltax(delta_x,  Ki);
 
 				        //Save values to be commanded: Throttle limited 0 -> 1, rest are -1 -> 1
-			            u_com[0] = fmax(fmin(-1*u_com_temp[0] + u0[0][_time_step],1),0); //Throttle:Prop
-			            u_com[1] = fmax(fmin(-1*u_com_temp[1] + u0[1][_time_step],1),-1); //Roll:Aileron
-			            u_com[2] = fmax(fmin(-1*u_com_temp[2] + u0[2][_time_step],1),-1); //Pitch:Elevator
-			            u_com[3] = fmax(fmin(-1*u_com_temp[3] + u0[3][_time_step],1),-1); //Yaw:Rudder	               
+			            u_com[0] = (double) fmax(fmin(-1*u_com_temp[0] + u0[0][_time_step],1),0); //Throttle:Prop
+			            u_com[1] = (double) fmax(fmin(-1*u_com_temp[1] + u0[1][_time_step],1),-1); //Roll:Aileron
+			            u_com[2] = (double) fmax(fmin(-1*u_com_temp[2] + u0[2][_time_step],1),-1); //Pitch:Elevator
+			            u_com[3] = (double) fmax(fmin(-1*u_com_temp[3] + u0[3][_time_step],1),-1); //Yaw:Rudder	               
 
 		                 //u_com[0] = (double) .6*sin(att.timestamp);  // throttle yaw
 		                 //u_com[1] = (double) .6*sin(att.timestamp);  // roll
@@ -1390,7 +1391,7 @@ FixedwingAttitudeControl::task_main()
 		                             //Message which is saving all our data from experiments
 		                             _testing_data.x_des[0] = vec_des[0];
 		                             _testing_data.x_des[1] = vec_des[1];
-		                             _testing_data.x_des[2] = x0[2][_time_step]-x0[2][0]+_z_init;
+		                             _testing_data.x_des[2] = -1*(x0[2][_time_step]-x0[2][0]+_z_init);
 		                             _testing_data.x_des[3] = q_rot[0];
 		                             _testing_data.x_des[4] = q_rot[1];
 		                             _testing_data.x_des[5] = q_rot[2];
