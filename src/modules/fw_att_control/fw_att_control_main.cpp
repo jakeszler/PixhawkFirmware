@@ -1157,112 +1157,100 @@ FixedwingAttitudeControl::task_main()
 		             break;
 		             case TVLQR_STATE_START:
 		             {
-		             	//warnx("here");
 		             	if(flag == 0){
+		             		//Initial absolute time for trajectory 
 		             		 _t_init = (double) hrt_absolute_time();
 		             		 warnx("%lf",_t_init);
 
-		             		 //float test_heading_init = atan2(2*(att.q[0]*att.q[3]+att.q[1]*att.q[2]),1-2*(att.q[0]*att.q[0]+att.q[3]*att.q[3]));
-		             		 //_heading_init = atan2(2*(-1*att.q[1]*att.q[2]-1*att.q[0]*att.q[3]),1-2*(att.q[3]*att.q[3]+att.q[2]*att.q[2]));
-		             		 _heading_init = -1*_heading_init;
-		             		 //float test_heading_init = atan2(2*.707*.707,1-2*(.707*.707));
-		             		_heading_init = _local_pos.yaw; 
+		             		 //Get initial heading in XY plane to rotate trajectory accordingly
+		             		 _heading_init = atan2(2*(-1*att.q[1]*att.q[2]-1*att.q[0]*att.q[3]),1-2*(att.q[3]*att.q[3]+att.q[2]*att.q[2])); //Extract 
+		             		//_heading_init = _local_pos.yaw; 
 		             		_c_head = cos(-1*_heading_init);
 		             		_s_head = sin(-1*_heading_init);
+
+		             		//Initial X,Y,Z position for trajectory start
 		             	    _x_init = (double) _local_pos.x;
-		             		_y_init = (double) _local_pos.y;
-		             		//_x_init = x0[0][_time_step]*_c_head+ -1*(double) _local_pos.x;
-		             		//_y_init = x0[0][_time_step]*_s_head+ -1*(double) _local_pos.y;
-		             		_z_init = (double) _local_pos.z;
+		             		_y_init = (double) _local_pos.y; 
+		             		_z_init =  (double)_local_pos.z;
+
+		             		//Quaternion rotation about z-axis by initial heading angle
 		             		_q_rot[0] = cos(-.5*_heading_init);
 		             		_q_rot[1] = 0;
 		             		_q_rot[2] = 0;
 		             		_q_rot[3] = sin(-.5*_heading_init);
-		             		//vec_des[0] = 0;
-		             		//vec_des[1] = 0;
-		             		//warnx("Heading(Yaw) %lf, Heading(quatz) %lf",_heading_init,test_heading_init);
-		             		//warnx("%lf %lf %lf %lf",_q_rot[0],_q_rot[1],_q_rot[2],_q_rot[3]);
 	
+							//Flag if initialization has occured
 		             		flag = 1;
 		             	}
-		                /*
-		                 * 400 degree/second roll to 45 degrees
-		            //      */
-		             	att.timestamp = (double) hrt_absolute_time(); // _att.timestamp;
-		             	//float q[4] = {-1*att.q[1],att.q[0],-1*att.q[3],1*att.q[2]};
+
+		             	//Get current time
+		             	att.timestamp = (double) hrt_absolute_time(); 
+
+		             	//Get current orientation and rotate 180 about roll/x axis:w,q1,q2,q3->-q1,w,-q3,q2
+		             	//Gazebo uses a North-West-Up representation: We use North-East-Down in Drake
 		             	float q[4] = {-1*att.q[1],att.q[0],-1*att.q[3],att.q[2]};
-		                //float q[4] = {-1*att.q[2],-1*att.q[3],-1*att.q[0],-1*att.q[1]};
-		               // warnx("%lf", ((double)_actuators.control[0]));
-		        		// warnx("runnn");
-		                double delta_x[12];
-		                //warnx("attitude timestamp = %d \n t_init %d \n T_end %lf",att.timestamp-_t_init,_t_init,t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6));
+		                
+		                
+		             	//If we have reached the last time of the trajectory, break
 		                if(att.timestamp-_t_init >= t[(sizeof(t)/sizeof(t[0]))-1]*pow(10,6)){
 		                     _tvlqr_state = TVLQR_STATE_FINISHED;
 		                     break;
 		                }
-		                   //	warnx("Timestep %lf %lf %lf",att.timestamp-_t_init,t[_time_step + 1]*pow(10,6),t[_time_step + 2]*pow(10,6));
+		                  
+		                //Determine appropriate time-step for TVLQR
 		                while((att.timestamp-_t_init > t[_time_step ]*pow(10,6))&&(att.timestamp-_t_init > t[_time_step + 1]*pow(10,6)))
 		                {
 		                    ++_time_step;
 		                	//warnx("Timestep %d",_time_step);
 		                }
 
-
-
-		         		//float q0[4] = {-1*(float)x0[4][_time_step],(float) x0[3][_time_step], -1*(float)x0[6][_time_step],(float) x0[5][_time_step]};
+		                //Lookup desired orientation from the TVLQR header file
 		         		float q0[4] = {(float)x0[3][_time_step],(float) x0[4][_time_step], (float)x0[5][_time_step],(float) x0[6][_time_step]};
-		         		//double *q0_rotated[4];
-		         		//q0_rotated = qmultiply(_q_rot,q0,q0_rotated);
+		         		
+		         		//Rotate the desired orientation by the initial heading angle 
+		         		//NOTE: This is just for testing, as setting an absolute 
+		         		//orientation may have huge delta q depending on initial heading
 		         		qrotate(_q_rot,q0);
-		         		//     warnx("x is {%lf %lf %lf} xd is {%lf %lf %lf} q is {%lf,%lf,%lf,%lf}  qd is {%lf,%lf,%lf,%lf}",
-    					//	_local_pos.x+_x_init,_local_pos.y+_y_init,_local_pos.z+_z_init,
-    					//	((x0[0][_time_step])*_c_head),((x0[0][_time_step])*_s_head),x0[2][_time_step],
-    					//	 q[0],q[1],q[2],q[3],q_rot[0],q_rot[1],q_rot[2],q_rot[3]);
 
-
-    					    // warnx("v is {%lf %lf %lf} vd is {%lf %lf %lf}",
-    						//_local_pos.vx,_local_pos.vy,_local_pos.vz,
-    						//((x0[7][_time_step])*_c_head),((x0[7][_time_step])*_s_head),x0[9][_time_step]);
-
-    						//warnx("\n[%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf]",
-    						//_local_pos.x+_x_init,_local_pos.y+_y_init,_local_pos.z+_z_init,
-    						//q[0],q[1],q[2],q[3],
-    						//((x0[0][_time_step])*_c_head),((x0[0][_time_step])*_s_head),x0[2][_time_step],
-    						 //q_rot[0],q_rot[1],q_rot[2],q_rot[3]);
-		                
+		                //Find the quaternion conjugate= negating the vector portion
 		                double *q0con;
-		                //q0con = qconjugate(q0_rotated);
-		                q0con = qconjugate(q_rot);	            
-		                //warnx("q0_rotated: %lf %lf %lf %lf",q_rot[0],q_rot[1],q_rot[2],q_rot[3]);
-		                //qconjugate(q0);
-		                //PASS BY REFERENCE INSTEAD!!! THIS IS SCREWED UP!!!
+		                q0con = qconjugate(q_rot);	   
+
+		                //Multiply the measured quaternion by the negative of the desired
+		                //NOTE: Multiplication in quaternion = addition of orientations,so
+		                //multiplying by the conjugate is essentially subtraction of q-qd
 		        		double *qdiff;
 		        		qdiff = qmultiply(q0con,q);
-		        		//warnx("q0_rotated: %lf %lf %lf %lf",q_rot[0],q_rot[1],q_rot[2],q_rot[3]);
-		        		//warnx("qdiff: %lf %lf %lf %lf",qdiff[0],qdiff[1],qdiff[2],qdiff[3]);
 
-
-		        			//warnx("updated xd is %lf , %lf , %;f",((x0[0][_time_step])*_c_head),((x0[0][_time_step])*_s_head),x0[2][_time_step]);
+		        		//Linear interpolation on the x-component of the desired trajectory
+		        		//NOTE:Can/will be done in y-dir but test trajectory has y=0 everywhere
 		        		double x_des_interp = x0[0][_time_step]+
 		        				(att.timestamp-_t_init-t[_time_step]*pow(10,6))*
 		        				(x0[0][_time_step+1]-x0[0][_time_step])/((t[_time_step+1]*pow(10,6)-t[_time_step]*pow(10,6)));
+		                	
 		                
-		        		//warnx("%lf",x_des_interp);		
-		                //delta_x[0] = {(double)_local_pos.x-((x0[0][_time_step])*_c_head)+_x_init};
-		                
+		        		//Vector to desired position from the initial position, rotated by heading angle
 		        	    double vec_des[2] = {(x_des_interp-x0[0][0])*_c_head,(x_des_interp-x0[0][0])*_s_head};
-		        	    double vec_meas[2] = {-1*_x_init+(double)_local_pos.x,-1*_y_init+(double) _local_pos.y};
 		        	    double norm_vecd = sqrt(vec_des[0]*vec_des[0]+vec_des[1]*vec_des[1]);
-		        	    double norm_vecm = sqrt(vec_meas[0]*vec_meas[0]+vec_meas[1]*vec_meas[1]);
 		        	    double unit_vecd[2] = {vec_des[0]/norm_vecd,vec_des[1]/norm_vecd};
-		        	    //double unit_vecm[2] = {vec_meas[0]/norm_vecm,vec_meas[1]/norm_vecm};
-		        	    double proj_meas_des = vec_meas[0]*(vec_des[0]/norm_vecd)+vec_meas[1]*(vec_des[1]/norm_vecd);
-		        	    //double del_x =  proj_meas_des-(x_des_interp-x0[0][0]);		        	    
+		        	    
+		        	    //Vector to the measured local x-y position from the initial position
+		        	    double vec_meas[2] = {-1*_x_init+(double)_local_pos.x,-1*_y_init+(double) _local_pos.y};
+		        	    //double norm_vecm = sqrt(vec_meas[0]*vec_meas[0]+vec_meas[1]*vec_meas[1]);
+		        	    
+		        	    //Project the measured position onto desired position vector for deltax (forward/backward)
+		        	    double proj_meas_des = vec_meas[0]*unit_vecd[0]+vec_meas[1]*unit_vecd[1];
+	        	    
+		        	    //Difference in position along trajectory (assuming forward in x is along original trajectory)
 		        	    double del_x =  proj_meas_des-norm_vecd;
-		        	    double del_y =  sqrt(norm_vecm*norm_vecm-proj_meas_des*proj_meas_des);
+
+		        	    //Difference perpendicular to del_x (left and right of trajectory)
+		        	    //double del_y =  sqrt(norm_vecm*norm_vecm-proj_meas_des*proj_meas_des);
 		        	    double del_y_vec[2] = {vec_meas[0]-proj_meas_des*unit_vecd[0],vec_meas[1]-proj_meas_des*unit_vecd[1]};
-		        	    //double del_y = sqrt(del_y_vec)
-		        	    del_y = -1*del_y;
+		        	    double del_y = sqrt(del_y_vec[0]*del_y_vec[0]+del_y_vec[1]*del_y_vec[1]);
+		        	    //del_y = -1*del_y;  //As it stands, to the right of the traj is positive. Uncomment to flip this
+		        	    
+		        	    //Determine the sign of del_y depending on the direction of desired position
 		        	    if(unit_vecd[0] > 0) //+
 		        	    {
 		        	    	if(unit_vecd[1] > 0) //++
@@ -1297,43 +1285,42 @@ FixedwingAttitudeControl::task_main()
 		        	    		}
 		        	    	}
 		        	    }
+		        	    //Possible other implementation. Haven't tested
 		        	    //double theta_meas = atan2(2*(-1*att.q[1]*att.q[2]-1*att.q[0]*att.q[3]),1-2*(att.q[3]*att.q[3]+att.q[2]*att.q[2]));
 		        	    //if (theta_meas > _heading_init) del_y = -1*del_y;
 
+		        	    //warnx("del_x {%lf} del_y{%lf}",del_x,del_y);
 
-		        	    warnx("del_x {%lf} del_y{%lf}",del_x,del_y);
 
 
-		                //delta_x[0] = {(double)_local_pos.x-(x_des_interp*_c_head)+_x_init};
-		                //warnx("xd = %lf",-(x0[0][_time_step]));
-		                //delta_x[1] = {(double)_local_pos.y-((x0[0][_time_step])*_s_head)+_y_init};
-		                //delta_x[1] = {(double)_local_pos.y-(x_des_interp*_s_head)+_y_init};
+		                double delta_x[12];
+		                //X-Xd array population
+
+		                //XYZ Position difference
 		                delta_x[0] = del_x;
 		                delta_x[1] = del_y;
-		                delta_x[2] = {(double)_local_pos.z-x0[2][_time_step]+x0[2][0]-_z_init};
-
-
-		                //delta_x[3] = {(double)qdiff[0]};
+		                delta_x[2] = {-1*((double)_local_pos.z-_z_init)}; //since Z is measured down here
+		                
+		                //Orientation Difference
 		                delta_x[3] = {(double)qdiff[1]};
 		                delta_x[4] = {(double)qdiff[2]};
 		                delta_x[5] = {(double)qdiff[3]};
-		                //warnx("qdiff_after: %lf %lf %lf ",delta_x[3],delta_x[4],delta_x[5]);
 
-
+		                //Vxyz difference
 		                delta_x[6] = {(double)_local_pos.vx-(x0[7][_time_step]*_c_head)};
 		                delta_x[7] = {(double)_local_pos.vy-(x0[7][_time_step]*_s_head)};
 		                delta_x[8] = {(double)_local_pos.vz-x0[9][_time_step]};
 
-		                //warnx("sine is %lf cos is %lf",_s_head,_c_head);
-
+		                //Wxyz difference
 		                delta_x[9] = {(double)att.rollspeed-x0[10][_time_step]};
 		                delta_x[10] = {(double)att.pitchspeed-x0[11][_time_step]};
 		                delta_x[11] = {(double)att.yawspeed-x0[12][_time_step]};
 
 
+		                //Zero out array components to ignore them in testing
 		                //delta_x[0] = 0;
-		                //delta_x[1] = 0;
-		                //delta_x[2] = 0;
+		                delta_x[1] = 0;
+		                delta_x[2] = 0;
 		                //delta_x[3] = 0;
 		                //delta_x[4] = 0;
 		                //delta_x[5] = 0;
@@ -1343,28 +1330,26 @@ FixedwingAttitudeControl::task_main()
 		                delta_x[6] = 0;
 		                delta_x[7] = 0;
 		                delta_x[8] = 0;
-		                //delta_x[9] = 0;
-		                //delta_x[10] = 0;
-		                //delta_x[11] = 0;
+		                delta_x[9] = 0;
+		                delta_x[10] = 0;
+		                delta_x[11] = 0;
 
 
-				                double Ki[48];
-				                for(uint8_t i = 0; i < 48; ++i)				               
-				                {
-				                   //Ki[i] = K0[i];
-				                   Ki[i] = K[i][_time_step];
-				                	//Ki[i] = K[i][100];
-				                }
-		                //u = -K*deltax+u0
-			                //double *u_com_temp;
-			                //u_com_temp = K_deltax(delta_x,  Ki);
-				                K_deltax(delta_x,  Ki);
+				        double Ki[48];
+				        //Read in and populate the K Matrix
+				        for(uint8_t i = 0; i < 48; ++i)				               
+				            {
+				            Ki[i] = K[i][_time_step];
+				            }
 
+				        //Function for multiplying K*(x-xd). Saves value to u_com_temp    
+				        K_deltax(delta_x,  Ki);
 
-			                u_com[0] = -1*u_com_temp[0] + u0[0][_time_step];
-			                u_com[1] = -1*u_com_temp[1] + u0[1][_time_step];
-			                u_com[2] = -1*u_com_temp[2] + u0[2][_time_step];
-			                u_com[3] = -1*u_com_temp[3] + u0[3][_time_step];		               
+				        //Save values to be commanded: Throttle limited 0 -> 1, rest are -1 -> 1
+			            u_com[0] = fmax(fmin(-1*u_com_temp[0] + u0[0][_time_step],1),0); //Throttle:Prop
+			            u_com[1] = fmax(fmin(-1*u_com_temp[1] + u0[1][_time_step],1),-1); //Roll:Aileron
+			            u_com[2] = fmax(fmin(-1*u_com_temp[2] + u0[2][_time_step],1),-1); //Pitch:Elevator
+			            u_com[3] = fmax(fmin(-1*u_com_temp[3] + u0[3][_time_step],1),-1); //Yaw:Rudder	               
 
 		                 //u_com[0] = (double) .6*sin(att.timestamp);  // throttle yaw
 		                 //u_com[1] = (double) .6*sin(att.timestamp);  // roll
@@ -1378,22 +1363,8 @@ FixedwingAttitudeControl::task_main()
 		                //warnx("q0: %lf q1: %lf q2: %lf q3: %lf \n qd0: %lf  qd1: %lf qd2: %lf qd3: %lf",q[0],q[1],q[2],q[3],q0_rotated[0],q0_rotated[1],q0_rotated[2],q0_rotated[3]);
 		                //print_data();
 
-						//_actuators.timestamp = hrt_absolute_time();
-		                //PX4_INFO("All the way at 530!");
-		              //  _publish_actuators(u_com);
-		                 	//control_attitude(&_att_sp, &att, &actuators,  u_com);
+
 		                 	
-
-
-		     //             	if (PX4_ISFINITE(actuators.control[0]) &&
-						 //    PX4_ISFINITE(actuators.control[1]) &&
-						 //    PX4_ISFINITE(actuators.control[2]) &&
-						 //    PX4_ISFINITE(actuators.control[3])) {
-							// //orb_publish(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_pub, &actuators);
-							// 	warnx("published");
-							// }
-
-
 
 					                //For printing and debugging
 					                _u_com1 = u_com[0];
@@ -1416,7 +1387,7 @@ FixedwingAttitudeControl::task_main()
 
 		                             print_data();
 
-
+		                             //Message which is saving all our data from experiments
 		                             _testing_data.x_des[0] = vec_des[0];
 		                             _testing_data.x_des[1] = vec_des[1];
 		                             _testing_data.x_des[2] = x0[2][_time_step]-x0[2][0]+_z_init;
@@ -1434,10 +1405,10 @@ FixedwingAttitudeControl::task_main()
 		                             _testing_data.x_meas[0] = vec_meas[0];
 		                             _testing_data.x_meas[1] = vec_meas[1];
 		                             _testing_data.x_meas[2] = _local_pos.z;
-		                             _testing_data.x_meas[3] = -1*att.q[1];
-		                             _testing_data.x_meas[4] = att.q[0];
-		                             _testing_data.x_meas[5] = -1*att.q[3];
-		                             _testing_data.x_meas[6] = att.q[2];
+		                             _testing_data.x_meas[3] = q[0];
+		                             _testing_data.x_meas[4] = q[1];
+		                             _testing_data.x_meas[5] = q[2];
+		                             _testing_data.x_meas[6] = q[3];
 		                             _testing_data.x_meas[7] = _local_pos.vx;
 		                             _testing_data.x_meas[8] = _local_pos.vy;
 		                             _testing_data.x_meas[9] = _local_pos.vz;
@@ -1451,9 +1422,9 @@ FixedwingAttitudeControl::task_main()
 		                             _testing_data.u_comm[3] = u_com[3];
 
 
-		                             _testing_data.del_x[0] = del_x;
-		                             _testing_data.del_x[1] = del_y;
-		                             _testing_data.del_x[2] = (double)_local_pos.z-x0[2][_time_step]+x0[2][0]-_z_init;
+		                             _testing_data.del_x[0] = delta_x[0];
+		                             _testing_data.del_x[1] = delta_x[1];
+		                             _testing_data.del_x[2] = delta_x[2];
 		                             _testing_data.del_x[3] = delta_x[3];
 		                             _testing_data.del_x[4] = delta_x[4];
 		                             _testing_data.del_x[5] = delta_x[5];
@@ -1477,6 +1448,7 @@ FixedwingAttitudeControl::task_main()
 		                             _testing_data.times = att.timestamp;
 
 
+		                             //Publish All Testing Data
 		                             if (_testing_data_pub != nullptr) {
 					
 		
@@ -1487,48 +1459,13 @@ FixedwingAttitudeControl::task_main()
 									}
 
 
-		                             //orb_publish(ORB_ID(testing_data), _testing_data_pub, &_testing_data);
 
-
-		                              //print_data();
-
-		             //   double u[4];
-
-		             //	for(int i = 0; i <12; i++){
-		             //           
-		             //           float u_com[4] = {*K_deltax(float delta_x[12],  float Ki[48])};
-		             //		u[i] = -K[i][_time_step]*delta_x[i][_time_step] + u;
-		             //	}
-		             	
-
-
-		             	//printf("%d",(int)delta_x[1]);
-		             	//printf("%d",qdiff[0]);
-
-		             //matrix multiply
-		             
-
-		            //     _vehicle_rates_setpoint.roll = rotate_rate;
-		            //     _vehicle_rates_setpoint.pitch = 0;
-		            //     _vehicle_rates_setpoint.yaw = 0;
-		            //     _vehicle_rates_setpoint.thrust = 1;
-		            //     orb_publish(ORB_ID(vehicle_rates_setpoint), _vehicle_rates_setpoint_pub, &_vehicle_rates_setpoint);
-		            //     // if ((_attitude.roll > 0.0f && _attitude.roll > rotate_target_45) || (_attitude.roll < 0.0f && _attitude.roll < -rotate_target_45)) {
-		            //     //     _tvlqr_state = FLIP_STATE_ROLL;
-		            //     // }
-		                 
 		             }
 		             break;
 		             case TVLQR_STATE_FINISHED:
 		                 /*
 		                  * go back to disabled state
 		                  */
-		            // warnx("I finished a loop");
-		            //     // enable manual control and attitude control
-		                 //_vehicle_control_mode.flag_control_manual_enabled = true;
-		                // _vehicle_control_mode.flag_control_attitude_enabled = true;
-		                // orb_publish(ORB_ID(vehicle_control_mode), _vehicle_control_mode_pub, &_vehicle_control_mode);
-		            //     // switch back to disabled flip state
 		                 _tvlqr_state = TVLQR_STATE_DISABLED;
 		                 _time_step = 0;
 		                 flag = 0;
