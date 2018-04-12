@@ -45,7 +45,6 @@
 #include <px4_defines.h>
 #include <px4_tasks.h>
 #include <px4_posix.h>
-
 #include <drivers/drv_hrt.h>
 #include <ecl/attitude_fw/ecl_pitch_controller.h>
 #include <ecl/attitude_fw/ecl_roll_controller.h>
@@ -1292,6 +1291,71 @@ FixedwingAttitudeControl::task_main()
 
 		        	    //warnx("del_x {%lf} del_y{%lf}",del_x,del_y);
 
+		        	    //VELOCITY STUF
+
+		        	    double vx_des_interp = x0[7][_time_step]+
+		        				(att.timestamp-_t_init-t[_time_step]*pow(10,6))*
+		        				(x0[7][_time_step+1]-x0[7][_time_step])/((t[_time_step+1]*pow(10,6)-t[_time_step]*pow(10,6)));
+		                	
+		                
+		        		//Vector to desired position from the initial position, rotated by heading angle
+		        	    double vec_des_v[2] = {vx_des_interp*_c_head,vx_des_interp*_s_head};
+		        	    double norm_vecd_v = sqrt(vec_des_v[0]*vec_des_v[0]+vec_des_v[1]*vec_des_v[1]);
+		        	    double unit_vecd_v[2] = {vec_des_v[0]/norm_vecd_v,vec_des_v[1]/norm_vecd_v};
+		        	    
+		        	    //Vector to the measured local x-y position from the initial position
+		        	    //double vec_meas[2] = {-1*_x_init+(double)_local_pos.x,-1*_y_init+(double) _local_pos.y};
+		        	    double vec_meas_v[2] = {(double)_local_pos.vx,-1*(double)_local_pos.vy};
+		        	    //double norm_vecm = sqrt(vec_meas[0]*vec_meas[0]+vec_meas[1]*vec_meas[1]);
+		        	    
+		        	    //Project the measured position onto desired position vector for deltax (forward/backward)
+		        	    double proj_meas_des_v = vec_meas_v[0]*unit_vecd_v[0]+vec_meas_v[1]*unit_vecd_v[1];
+	        	    
+		        	    //Difference in position along trajectory (assuming forward in x is along original trajectory)
+		        	    double del_vx =  proj_meas_des_v-norm_vecd_v;
+
+		        	    //Difference perpendicular to del_x (left and right of trajectory)
+		        	    //double del_y =  sqrt(norm_vecm*norm_vecm-proj_meas_des*proj_meas_des);
+		        	    double del_vy_vec[2] = {vec_meas_v[0]-proj_meas_des_v*unit_vecd_v[0],vec_meas_v[1]-proj_meas_des_v*unit_vecd_v[1]};
+		        	    double del_vy = sqrt(del_vy_vec[0]*del_vy_vec[0]+del_vy_vec[1]*del_vy_vec[1]);
+		        	    //del_y = -1*del_y;  //As it stands, to the right of the traj is positive. Uncomment to flip this
+		        	    
+		        	    //Determine the sign of del_y depending on the direction of desired position
+		        	    if(unit_vecd_v[0] > 0) //+
+		        	    {
+		        	    	if(unit_vecd_v[1] > 0) //++
+		        	    	{
+		        	    		if(del_vy_vec[0] < 0)
+		        	    		{
+		        	    			del_vy = -1*del_vy;
+		        	    		}
+		        	    	}
+		        	    	else //+-
+		        	    	{
+		        	    		if(del_vy_vec[0] > 0)
+		        	    		{
+		        	    			del_vy = -1*del_vy;
+		        	    		}
+		        	    	}
+		        	    }
+		        	    else //-
+		        	    {
+		        	    	if(unit_vecd_v[1] < 0) //--
+		        	    	{
+		        	    		if(del_vy_vec[0] > 0)
+		        	    		{
+		        	    			del_vy = -1*del_vy;
+		        	    		}
+		        	    	}
+		        	    	else //-+
+		        	    	{
+		        	    		if(del_vy_vec[0] < 0)
+		        	    		{
+		        	    			del_vy = -1*del_vy;
+		        	    		}
+		        	    	}
+		        	    }
+
 
 
 		                double delta_x[12];
@@ -1308,9 +1372,11 @@ FixedwingAttitudeControl::task_main()
 		                delta_x[5] = {(double)qdiff[3]};
 
 		                //Vxyz difference
-		                delta_x[6] = {(double)_local_pos.vx-(x0[7][_time_step]*_c_head)};
-		                delta_x[7] = {(double)_local_pos.vy-(x0[7][_time_step]*_s_head)};
-		                delta_x[8] = {(double)_local_pos.vz-x0[9][_time_step]};
+		                delta_x[6] = del_vx;
+		                delta_x[7] = del_vy;
+		                //delta_x[6] = {(double)_local_pos.vx-(x0[7][_time_step]*_c_head)};
+		                //delta_x[7] = {(double)_local_pos.vy-(x0[7][_time_step]*_s_head)};
+		                delta_x[8] = {-1*(double)_local_pos.vz-x0[9][_time_step]};
 
 		                //Wxyz difference
 		                delta_x[9] = {(double)att.rollspeed-x0[10][_time_step]};
@@ -1328,29 +1394,35 @@ FixedwingAttitudeControl::task_main()
 		                //delta_x[3] = -1*delta_x[3];
 		                //delta_x[4] = -1*delta_x[4];;
 		                //delta_x[5] = -1*delta_x[5];;
-		                delta_x[6] = 0;
-		                delta_x[7] = 0;
-		                delta_x[8] = 0;
+		                //delta_x[6] = 0;
+		                //delta_x[7] = 1*delta_x[7];
+		                //delta_x[8] = 1*delta_x[8];
 		                //delta_x[9] = 0;
-		                //delta_x[10] = 0;
-		                //delta_x[11] = 0;
+		                //delta_x[10] = -1*delta_x[10];
+		                //delta_x[11] = -1*delta_x[11];
 
 
 				        double Ki[48];
 				        //Read in and populate the K Matrix
 				        for(uint8_t i = 0; i < 48; ++i)				               
 				            {
-				            Ki[i] = K[i][_time_step];
+				            //Ki[i] = K[i][_time_step];
+				            	Ki[i] = K[i][0];
 				            }
 
 				        //Function for multiplying K*(x-xd). Saves value to u_com_temp    
 				        K_deltax(delta_x,  Ki);
 
 				        //Save values to be commanded: Throttle limited 0 -> 1, rest are -1 -> 1
-			            u_com[0] = (double) fmax(fmin(-1*u_com_temp[0] + u0[0][_time_step],1),0); //Throttle:Prop
-			            u_com[1] = (double) fmax(fmin(-1*u_com_temp[1] + u0[1][_time_step],1),-1); //Roll:Aileron
-			            u_com[2] = (double) fmax(fmin(-1*u_com_temp[2] + u0[2][_time_step],1),-1); //Pitch:Elevator
-			            u_com[3] = (double) fmax(fmin(-1*u_com_temp[3] + u0[3][_time_step],1),-1); //Yaw:Rudder	               
+			            //u_com[0] = (double) fmax(fmin(-1*u_com_temp[0] + u0[0][_time_step],1),0); //Throttle:Prop
+			            //u_com[1] = (double) fmax(fmin(-1*u_com_temp[1] + u0[1][_time_step],1),-1); //Roll:Aileron
+			            //u_com[2] = (double) fmax(fmin(-1*u_com_temp[2] + u0[2][_time_step],1),-1); //Pitch:Elevator
+			            //u_com[3] = (double) fmax(fmin(-1*u_com_temp[3] + u0[3][_time_step],1),-1); //Yaw:Rudder	   
+
+			            u_com[0] = (double) fmax(fmin(-1*u_com_temp[0] + u0[0][0],1),0); //Throttle:Prop
+			            u_com[1] = (double) fmax(fmin(-1*u_com_temp[1] + u0[1][0],1),-1); //Roll:Aileron
+			            u_com[2] = (double) fmax(fmin(-1*u_com_temp[2] + u0[2][0],1),-1); //Pitch:Elevator
+			            u_com[3] = (double) fmax(fmin(-1*u_com_temp[3] + u0[3][0],1),-1); //Yaw:Rudder	               
 
 		                 //u_com[0] = (double) .6*sin(att.timestamp);  // throttle yaw
 		                 //u_com[1] = (double) .6*sin(att.timestamp);  // roll
@@ -1373,9 +1445,9 @@ FixedwingAttitudeControl::task_main()
 					                _u_com3 = u_com[2];
 					                _u_com4 = u_com[3];
 
-		                             _x_cur1 = _local_pos.x+_x_init;
-		                             _x_cur2 = _local_pos.y+_y_init;
-		                             _x_cur3 = _local_pos.z+_z_init;
+		                             _x_cur1 = (double) _local_pos.x+ (double) _x_init;
+		                             _x_cur2 = (double)_local_pos.y+(double)_y_init;
+		                             _x_cur3 = (double)_local_pos.z+(double)_z_init;
 		                             _x_cur4 = -1*att.q[1];
 		                             _x_cur5 = att.q[0];
 		                             _x_cur6 = -1*att.q[3];
@@ -1386,7 +1458,7 @@ FixedwingAttitudeControl::task_main()
 		                             _x_cur11 = delta_x[10];	
 		                             _x_cur12 = delta_x[11];
 
-		                             print_data();
+		                             //print_data();
 
 		                             //Message which is saving all our data from experiments
 		                             _testing_data.x_des[0] = vec_des[0];
@@ -1410,8 +1482,8 @@ FixedwingAttitudeControl::task_main()
 		                             _testing_data.x_meas[4] = q[1];
 		                             _testing_data.x_meas[5] = q[2];
 		                             _testing_data.x_meas[6] = q[3];
-		                             _testing_data.x_meas[7] = _local_pos.vx;
-		                             _testing_data.x_meas[8] = _local_pos.vy;
+		                             _testing_data.x_meas[7] = vec_meas_v[0];
+		                             _testing_data.x_meas[8] = vec_meas_v[1];
 		                             _testing_data.x_meas[9] = _local_pos.vz;
 		                             _testing_data.x_meas[10] = att.rollspeed;
 		                             _testing_data.x_meas[11] = att.pitchspeed;
@@ -1868,7 +1940,6 @@ FixedwingAttitudeControl::start()
 
 	return PX4_OK;
 }
-
 int fw_att_control_main(int argc, char *argv[])
 {
 	if (argc < 2) {
