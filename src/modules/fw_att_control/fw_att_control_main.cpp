@@ -1136,7 +1136,7 @@ FixedwingAttitudeControl::task_main()
 		                 * 400 degree/second roll to 45 degrees
 		            //      */
 		             	att.timestamp = hrt_absolute_time(); // _att.timestamp;
-		             	float q[4] = {-1*att.q[1],att.q[0],-1*.q[3],-1*att.q[2]};
+		             	float q[4] = {-1*att.q[1],att.q[0],-1*att.q[3],-1*att.q[2]};
 		                //float q[4] = {att.q[0],att.q[1],att.q[2],att.q[3]};
 		               // warnx("%lf", ((double)_actuators.control[0]));
 		        		// warnx("runnn");
@@ -1146,10 +1146,10 @@ FixedwingAttitudeControl::task_main()
 		                     _tvlqr_state = TVLQR_STATE_FINISHED;
 		                     break;
 		                }
-		                while((att.timestamp-_t_init > t[_time_step + 1]*pow(10,6))&&(att.timestamp-_t_init < t[_time_step + 2]*pow(10,6)))
+		                while((att.timestamp-_t_init > t[_time_step]*pow(10,6))&&(att.timestamp-_t_init > t[_time_step + 1]*pow(10,6)))
 		                {
 		                    ++_time_step;
-		                	//warnx("Timestep %d",_time_step);
+		                	warnx("Timestep %d",_time_step);
 		                }
 
 		         		double q0[4] = { x0[3][_time_step], x0[4][_time_step], x0[5][_time_step], x0[6][_time_step]};
@@ -1183,25 +1183,25 @@ FixedwingAttitudeControl::task_main()
 		                delta_x[10] = {(double)att.pitchspeed-x0[11][_time_step]};
 		                delta_x[11] = {(double)att.yawspeed-x0[12][_time_step]};
 
-				                double Ki[48];
-				                for(uint8_t i = 0; i < 48; ++i)
-				                {
-				                   Ki[i] = K[i][_time_step];
-				                }
-		                //u = -K*deltax+u0
-			                double *u_com_temp;
-			                u_com_temp = K_deltax(delta_x,  Ki);
+				              //   double Ki[48];
+				              //   for(uint8_t i = 0; i < 48; ++i)
+				              //   {
+				              //      Ki[i] = K[i][_time_step];
+				              //   }
+		                // //u = -K*deltax+u0
+			               //  double *u_com_temp;
+			               //  u_com_temp = K_deltax(delta_x,  Ki);
 
 
-			                u_com[0] = -1*u_com_temp[0] + u0[0][_time_step];
-			                u_com[1] = -1*u_com_temp[1] + u0[1][_time_step];
-			                u_com[2] = -1*u_com_temp[2] + u0[2][_time_step];
-			                u_com[3] = -1*u_com_temp[3] + u0[3][_time_step];
+			                // u_com[0] = -1*u_com_temp[0] + u0[0][_time_step];
+			                // u_com[1] = -1*u_com_temp[1] + u0[1][_time_step];
+			                // u_com[2] = -1*u_com_temp[2] + u0[2][_time_step];
+			                // u_com[3] = -1*u_com_temp[3] + u0[3][_time_step];
 
-		                // u_com[0] = 0.1;  // throttle yaw
-		                // u_com[1] = 0.5;  // roll
-		                // u_com[2] = -0.5;  // pitch
-		                // u_com[3] = 0.5; //yaw
+		                u_com[0] = 0.1;  // throttle yaw
+		                u_com[1] =  (float)(0.5*sin(att.timestamp/100000));   // roll
+		                u_com[2] = -0.5;  // pitch
+		                u_com[3] = 0.5; //yaw
 		                 
 
 		                //warnx("ucom 0: %lf ucom 1: %lf ucom 2: %lf ucom 3: %lf", u_com[0], u_com[1], u_com[2], u_com[3]);
@@ -1292,7 +1292,7 @@ FixedwingAttitudeControl::task_main()
 
 			}
 			/* decide if in stabilized or full manual control */
-			if (_vcontrol_mode.flag_control_rates_enabled || _parameters.tvlqr != 2) {
+			if (_vcontrol_mode.flag_control_rates_enabled || _parameters.tvlqr == 2) {
 				/* scale around tuning airspeed */
 				float airspeed;
 				//	warnx("tvlqr : %d ", _parameters.tvlqr);
@@ -1487,6 +1487,7 @@ FixedwingAttitudeControl::task_main()
 
 						if(_parameters.tvlqr ==2)
 						{
+						warnx("setting ucom 3");
 						_actuators.control[actuator_controls_s::INDEX_YAW] =  (float) u_com[3];//(float)0.01;//(PX4_ISFINITE(yaw_u)) ? yaw_u + _parameters.trim_yaw :_parameters.trim_yaw;
 						
 						/* add in manual rudder control */
@@ -1748,6 +1749,7 @@ int fw_att_control_main(int argc, char *argv[])
 			warnx("not running");
 			return 1;
 		}
+		//warnx("_vcontrol_mode:%d",_parameters.tvlqr);
 	}
 
 	warnx("unrecognized command");
