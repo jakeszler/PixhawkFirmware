@@ -27,7 +27,7 @@ set(config_module_list
 	drivers/ms5611
 	#drivers/mb12xx
 	#drivers/srf02
-	drivers/sf0x
+	#drivers/sf0x   removed 4/11
 	drivers/ll40ls
 	drivers/trone
 	drivers/gps
@@ -117,8 +117,8 @@ set(config_module_list
 	modules/fw_pos_control_l1
 	modules/gnd_att_control
 	modules/gnd_pos_control
-	modules/mc_att_control
-	modules/mc_pos_control
+	#modules/mc_att_control
+	#modules/mc_pos_control
 	#modules/vtol_att_control
 	#modules/TVLQR_Control
 
@@ -126,7 +126,7 @@ set(config_module_list
 	# Logging
 	#
 	#modules/logger
-	#modules/sdlog2
+	modules/sdlog2
 
 	#
 	# Library modules
