@@ -550,7 +550,7 @@ FixedwingAttitudeControl::FixedwingAttitudeControl() :
 
 	_parameter_handles.bat_scale_en = param_find("FW_BAT_SCALE_EN");
 
-	_parameter_handles.tvlqr = param_find("NAV_FT_FS");
+	_parameter_handles.tvlqr = param_find("MAV_TEST_PAR");
 
 
 	/* fetch initial parameter values */
@@ -1131,14 +1131,14 @@ FixedwingAttitudeControl::task_main()
 
 			 orb_check(_vehicle_attitude_sub, &updated);
 
-           // orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);
+           // orb_publish(ORB_ID(vehicle_rates_setpoint), rates_pub, &rates_sp);	
 
             if (updated) {
                 orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &att)	;
             }
             //warnx("here000");
             //warnx("%d control ", _vcontrol_mode.flag_control_rates_enabled);
-			if(_parameters.tvlqr == 2)// _vcontrol_mode.flag_control_rattitude_enabled )//_parameters.tvlqr == 2) //_vcontrol_mode.flag_control_rates_enabled &&
+			if(_parameters.tvlqr == 0)// _vcontrol_mode.flag_control_rattitude_enabled )//_parameters.tvlqr >1.0f) //_vcontrol_mode.flag_control_rates_enabled &&
 			{
 				
 				
@@ -1549,7 +1549,7 @@ FixedwingAttitudeControl::task_main()
 
 			}
 			/* decide if in stabilized or full manual control */
-			if (_vcontrol_mode.flag_control_rates_enabled || _parameters.tvlqr == 2) {//_parameters.tvlqr != 2) {
+			if (_vcontrol_mode.flag_control_rates_enabled || _parameters.tvlqr  == 0) {//_parameters.tvlqr != 2) {
 				/* scale around tuning airspeed */
 				float airspeed;
 				//	warnx("tvlqr : %d ", _parameters.tvlqr);
@@ -1590,7 +1590,7 @@ FixedwingAttitudeControl::task_main()
 
 				// in STABILIZED mode we need to generate the attitude setpoint
 				// from manual user inputs
-				if (!_vcontrol_mode.flag_control_climb_rate_enabled && !_vcontrol_mode.flag_control_offboard_enabled && _parameters.tvlqr != 2){ // _parameters.tvlqr != 2) {
+				if (!_vcontrol_mode.flag_control_climb_rate_enabled && !_vcontrol_mode.flag_control_offboard_enabled && _parameters.tvlqr != 0){ // _parameters.tvlqr != 2) {
 
 					//warnx("here5");
 					_att_sp.roll_body = _manual.y * _parameters.man_roll_max + _parameters.rollsp_offset_rad;
@@ -1667,7 +1667,7 @@ FixedwingAttitudeControl::task_main()
 				_yaw_ctrl.set_coordinated_method(_parameters.y_coordinated_method);
 
 				/* Run attitude controllers */
-				if (_vcontrol_mode.flag_control_attitude_enabled ||  (_parameters.tvlqr == 2)){//_parameters.tvlqr == 2) {
+				if (_vcontrol_mode.flag_control_attitude_enabled ||  (_parameters.tvlqr == 0)){//_parameters.tvlqr >1.0f) {
 					if (PX4_ISFINITE(roll_sp) && PX4_ISFINITE(pitch_sp)) {
 						//warnx("here11");
 						_roll_ctrl.control_attitude(control_input);
@@ -1682,7 +1682,7 @@ FixedwingAttitudeControl::task_main()
 
 						/* Run attitude RATE controllers which need the desired attitudes from above, add trim */
 						float roll_u = _roll_ctrl.control_euler_rate(control_input);
-						if( _parameters.tvlqr == 2){//_parameters.tvlqr == 2){
+						if( _parameters.tvlqr ==0 ){//_parameters.tvlqr >1.0f){
 							
 		                _actuators.control[actuator_controls_s::INDEX_ROLL] = (float) u_com[1];//-1.0;//(PX4_ISFINITE(roll_u)) ? roll_u + _parameters.trim_roll :_parameters.trim_roll;
 				
@@ -1703,7 +1703,7 @@ FixedwingAttitudeControl::task_main()
 
 						float pitch_u = _pitch_ctrl.control_euler_rate(control_input);
 
-						if(_parameters.tvlqr ==2){//_parameters.tvlqr ==2){
+						if(_parameters.tvlqr == 0){//_parameters.tvlqr >1.0f){
 							_actuators.control[actuator_controls_s::INDEX_PITCH] = (float) u_com[2];//1.0;//(PX4_ISFINITE(pitch_u)) ? pitch_u + _parameters.trim_pitch : _parameters.trim_pitch;
 
 					
@@ -1742,7 +1742,7 @@ FixedwingAttitudeControl::task_main()
 							yaw_u = _yaw_ctrl.control_euler_rate(control_input);
 						}
 
-						if( _parameters.tvlqr ==2)//_parameters.tvlqr ==2)
+						if( _parameters.tvlqr ==0)//_parameters.tvlqr >1.0f)
 						{
 						_actuators.control[actuator_controls_s::INDEX_YAW] =  (float) u_com[3];//(float)0.01;//(PX4_ISFINITE(yaw_u)) ? yaw_u + _parameters.trim_yaw :_parameters.trim_yaw;
 						
@@ -1770,7 +1770,7 @@ FixedwingAttitudeControl::task_main()
 
 						/* throttle passed through if it is finite and if no engine failure was detected */
 
-						if( _parameters.tvlqr == 2 ){//_parameters.tvlqr == 2){
+						if( _parameters.tvlqr == 0){//_parameters.tvlqr >1.0f){
 
 							/* throttle passed through if it is finite and if no engine failure was detected */
 						//warnx("actuator_controls_s::INDEX_THROTTLE : %d", actuator_controls_s::INDEX_THROTTLE);

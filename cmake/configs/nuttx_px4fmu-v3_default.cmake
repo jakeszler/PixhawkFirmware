@@ -104,7 +104,7 @@ set(config_module_list
 	modules/load_mon
 	modules/mavlink
 	modules/navigator
-	modules/uavcan
+	#modules/uavcan
 	modules/camera_feedback
 
 	#
@@ -219,8 +219,8 @@ set(config_io_board
 	)
 
 set(config_extra_libs
-	uavcan
-	uavcan_stm32_driver
+	#uavcan
+	#uavcan_stm32_driver
 	)
 
 set(config_io_extra_libs
