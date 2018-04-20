@@ -27,7 +27,7 @@ set(config_module_list
 	drivers/ms5611
 	#drivers/mb12xx
 	#drivers/srf02
-	drivers/sf0x
+	#drivers/sf0x
 	drivers/ll40ls
 	drivers/trone
 	drivers/gps
@@ -125,8 +125,8 @@ set(config_module_list
 	#
 	# Logging
 	#
-	#modules/logger
-	#modules/sdlog2
+	modules/logger
+	modules/sdlog2
 
 	#
 	# Library modules
