@@ -75,7 +75,6 @@
 #include "K_header_file_discrete_tvlqr.cpp"
 
 
-
 using matrix::Eulerf;
 using matrix::Quatf;
 
